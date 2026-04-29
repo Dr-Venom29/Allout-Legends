@@ -5,6 +5,7 @@ import SkinPanel from './SkinPanel';
 
 export default function ProfilePanel({ player }) {
   const [showSkinModal, setShowSkinModal] = useState(false);
+  const [hideBackButton, setHideBackButton] = useState(false);
   const [selectedAvatar] = useState(() => {
     return localStorage.getItem('selected_avatar') || '/assets/heros/Alpha_Coder.png';
   });
@@ -15,14 +16,14 @@ export default function ProfilePanel({ player }) {
   };
 
   const menuItems = [
-    { id: 'activity',     label: 'Account Activity',   icon: '📊' },
-    { id: 'online',       label: 'Online Trainers',    icon: '🟢' },
-    { id: 'leaderboards', label: 'Leaderboards',        icon: '🏆' },
-    { id: 'search',       label: 'Search Users',       icon: '🔍' },
-    { id: 'friends',      label: 'Friends & Blocklist', icon: '👥' },
-    { id: 'messages',     label: 'Messages',           icon: '💬', badge: 3 },
-    { id: 'pokemart',     label: 'PokéMart',           icon: '🏪' },
-    { id: 'events',       label: 'Events',             icon: '🎪', badge: 1 },
+    { id: 'activity', label: 'Account Activity', icon: '📊' },
+    { id: 'online', label: 'Online Trainers', icon: '🟢' },
+    { id: 'leaderboards', label: 'Leaderboards', icon: '🏆' },
+    { id: 'search', label: 'Search Users', icon: '🔍' },
+    { id: 'friends', label: 'Friends & Blocklist', icon: '👥' },
+    { id: 'messages', label: 'Messages', icon: '💬', badge: 3 },
+    { id: 'pokemart', label: 'PokéMart', icon: '🏪' },
+    { id: 'events', label: 'Events', icon: '🎪', badge: 1 },
   ];
 
   return (
@@ -116,14 +117,21 @@ export default function ProfilePanel({ player }) {
         >
           <div className="avatar-modal skin-modal" onClick={(e) => e.stopPropagation()}>
             <button
-              className="close-modal skin-modal-close"
+              className={`skin-modal-back ${hideBackButton ? 'hidden' : ''}`}
               onClick={() => setShowSkinModal(false)}
-              aria-label="Close"
+              aria-label="Go Back"
             >
-              ✕
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              BACK
             </button>
 
-            <SkinPanel title="ALLOUT LEGENDS" quantity={8} />
+            <SkinPanel
+              title="ALLOUT LEGENDS"
+              quantity={8}
+              onVaultReach={setHideBackButton}
+            />
           </div>
         </div>
       )}

@@ -55,6 +55,16 @@ A browser-based Pokémon-style game built with **React + Vite**, featuring a til
 
 ---
 
+### 🧥 Skins Carousel (Profile)
+
+* Full-screen skins modal from the Profile panel
+* 3D rotating carousel using PNG card art
+* Title banner set to **ALLOUT LEGENDS**
+* Images stored in `src/components/panels/images` and loaded by `SkinPanel`
+* Styling driven by `src/components/panels/style.css`
+
+---
+
 ### 📊 Tile System
 
 * **9 tilesets (1083 tiles total)**
@@ -120,11 +130,19 @@ pokemon-frontend/
 ├── src/
 │   ├── components/
 │   │   ├── Game.jsx
+│   │   ├── Sidebar.jsx
 │   │   ├── MapEditor.jsx
 │   │   ├── Map.jsx
 │   │   ├── Tile.jsx
 │   │   ├── Battle.jsx
 │   │   └── TileViewer.jsx
+│   │   └── panels/
+│   │       ├── ProfilePanel.jsx
+│   │       ├── SkinPanel.jsx
+│   │       ├── style.css
+│   │       └── images/
+│   │           ├── dragon_1.png
+│   │           └── ...
 │
 │   ├── data/
 │   │   ├── maps.js

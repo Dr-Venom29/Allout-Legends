@@ -58,37 +58,137 @@
   flex-direction: column;
   align-items: center;
   z-index: 200;
-  padding: 12px 0 8px;
+  padding: 0;
   gap: 0;
   overflow: hidden;
 }
 
-/* Corner accent marks */
-.game-sidebar::before {
-  content: '';
+/* ── CORNER BRACKET (top-left L-shape) ───────────────────── */
+.rail-corner-tl {
   position: absolute;
   top: 0;
   left: 0;
-  width: 10px;
-  height: 10px;
-  border-top: 1px solid var(--accent-line);
-  border-left: 1px solid var(--accent-line);
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid rgba(0, 229, 255, 0.3);
+  border-left: 1px solid rgba(0, 229, 255, 0.3);
   pointer-events: none;
+  z-index: 2;
+}
+
+/* ── AVATAR (TOP — identity anchor) ─────────────────────── */
+.rail-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  margin: 14px auto 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-mid);
+  background: var(--bg-card);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.rail-avatar:hover {
+  border-color: var(--border-glow);
+  transform: scale(1.06);
+}
+
+.rail-avatar.active {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 1px rgba(0,229,255,.12), 0 0 12px rgba(0,229,255,.08);
+}
+
+.rail-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.rail-avatar-status {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: var(--green);
+  border-radius: 50%;
+  border: 2px solid var(--bg-rail);
+  box-shadow: 0 0 5px var(--green);
+}
+
+/* ── DIVIDERS ────────────────────────────────────────────── */
+.rail-divider {
+  display: block;
+  width: 28px;
+  height: 1px;
+  background: var(--border-dim);
+  margin: 10px auto;
+  flex-shrink: 0;
+}
+
+.rail-divider--slim {
+  width: 20px;
+  margin: 6px auto;
+  background: rgba(28, 28, 46, 0.6);
+}
+
+/* ── VERSION LABEL ───────────────────────────────────────── */
+.rail-version {
+  margin-top: auto;
+  padding-bottom: 10px;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  text-align: center;
+  opacity: 0.5;
 }
 
 .sidebar-toggle { display: none; }
 
-/* ── NAV ITEMS ───────────────────────────────────────────── */
+/* ── NAV GROUPS ──────────────────────────────────────────── */
 .sidebar-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
   width: 100%;
-  padding: 4px 6px 0;
+  padding: 0 0 4px;
+  gap: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
 }
 
+.sidebar-content::-webkit-scrollbar { display: none; }
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+}
+
+/* One-letter group marker — purely decorative orientation cue */
+.nav-group-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 6px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0.4;
+  margin-bottom: 2px;
+  margin-top: 6px;
+}
+
+/* ── NAV ITEM ────────────────────────────────────────────── */
 .sidebar-item {
   position: relative;
   display: flex;
@@ -99,126 +199,102 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
+  /* Default icon colour — dim, unobtrusive */
   color: var(--text-dim);
   cursor: pointer;
   transition:
-    color .15s,
-    background .15s,
-    border-color .15s;
+    color 220ms ease,
+    background 220ms ease,
+    transform 220ms ease,
+    border-color 220ms ease;
   font-family: inherit;
-  font-size: 16px;
   outline: none;
+  flex-shrink: 0;
 }
 
 .sidebar-item:hover {
   color: var(--text-bright);
-  background: var(--bg-hover);
-  border-color: var(--border-mid);
+  background: rgba(255,255,255,.03);
+  transform: scale(1.08);
 }
 
 .sidebar-item.active {
   color: var(--accent);
   background: var(--accent-dim);
-  border-color: var(--accent-line);
+  border-color: transparent;
 }
 
-/* Active left-edge indicator */
+/* Active left-edge neon bar — the definitive state indicator */
 .sidebar-item.active::before {
   content: '';
   position: absolute;
   left: -1px;
-  top: 8px;
-  bottom: 8px;
+  top: 10px;
+  bottom: 10px;
   width: 2px;
   background: var(--accent);
   border-radius: 0 1px 1px 0;
-  box-shadow: 0 0 6px var(--accent);
+  box-shadow: 0 0 8px var(--accent), 0 0 16px rgba(0,229,255,.2);
 }
 
-/* Tooltip */
-.sidebar-item::after {
-  content: attr(title);
+/* ── TOOLTIP ─────────────────────────────────────────────── */
+.sidebar-tooltip {
   position: absolute;
-  left: calc(100% + 10px);
+  left: calc(100% + 12px);
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%) translateX(-4px);
   background: var(--bg-card);
   border: 1px solid var(--border-glow);
   color: var(--text-bright);
   font-family: var(--font-mono);
   font-size: 9px;
-  padding: 5px 10px;
+  padding: 5px 12px;
   border-radius: 2px;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity .12s;
+  transition: opacity 180ms ease, transform 180ms ease;
   z-index: 400;
   text-transform: uppercase;
   letter-spacing: 2px;
 }
 
-.sidebar-item:hover::after { opacity: 1; }
-
-.sidebar-icon { font-size: 16px; line-height: 1; display: block; }
-.sidebar-label { display: none; }
-
-/* Badge */
-.sidebar-badge,
-.sidebar-badge-collapsed {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  background: var(--red);
-  color: #fff;
-  font-size: 8px;
-  font-family: var(--font-mono);
-  padding: 1px 4px;
-  border-radius: 2px;
-  min-width: 13px;
-  text-align: center;
-  line-height: 1.4;
-  pointer-events: none;
+.sidebar-item:hover .sidebar-tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
 }
 
-/* ── FOOTER AVATAR ───────────────────────────────────────── */
-.sidebar-footer {
-  padding: 8px 0 4px;
-  border-top: 1px solid var(--border-dim);
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-.sidebar-player {
+.sidebar-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
-.player-avatar-mini {
-  width: 36px;
-  height: 36px;
-  background: var(--bg-card);
-  border-radius: 4px;
-  border: 1px solid var(--border-mid);
-  overflow: hidden;
-  cursor: pointer;
-  transition: border-color .15s;
-  position: relative;
+.sidebar-label { display: none; }
+
+/* ── BADGE ───────────────────────────────────────────────── */
+.sidebar-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--red);
+  color: #fff;
+  font-size: 7px;
+  font-family: var(--font-mono);
+  padding: 1px 3px;
+  border-radius: 2px;
+  min-width: 12px;
+  text-align: center;
+  line-height: 1.4;
+  pointer-events: none;
+  letter-spacing: 0.3px;
 }
 
-.player-avatar-mini:hover {
-  border-color: var(--accent-line);
-}
-
-.player-avatar-mini img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  image-rendering: pixelated;
-}
-
+/* ── LEGACY FOOTER (no longer used, kept for safety) ─────── */
+.sidebar-footer { display: none; }
 .player-info { display: none; }
 
 /* ── SECTION PANEL ───────────────────────────────────────── */
