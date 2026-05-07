@@ -10,7 +10,7 @@ import {
   TABLE, CHAIR, BED, FENCE_WOOD, FENCE_GATE,
   PATH_BRICK, WALL_WOOD, NPC_TRIGGER,
   createBaseMap, paint, paintLine, paintColumn, paintRect,
-  carveSideGate, carveVerticalGate, applyOverrides
+  applyOverrides
 } from './constants.js';
 
 function createMap1Base() {
@@ -21,10 +21,6 @@ function createMap1Base() {
   paintLine(map1, 1, 28, 15, PTH);
   paintColumn(map1, 14, 1, 28, PTH);
   paintColumn(map1, 15, 1, 28, PTH);
-
-  // Gates
-  carveSideGate(map1, "right", 14, 15, PTH);
-  carveVerticalGate(map1, "bottom", 14, 15, PTH);
 
   // Approach corridors
   paintLine(map1, 24, 29, 14, PTH);
@@ -340,7 +336,13 @@ const map1Overrides = [
   [5, 24, CROP_FIELD], [5, 23, CROP_FIELD], [5, 22, CROP_FIELD], [5, 21, CROP_FIELD], [5, 20, CROP_FIELD], [5, 19, CROP_FIELD],
 
   // Additional wall and pot from JSON
-  [10, 13, WALL_WOOD], [10, 12, POT]
+  [10, 13, WALL_WOOD], [10, 12, POT],
+
+  // Map1 -> Map2 connection points (right edge)
+  [29, 4, 47],
+  [29, 5, 47],
+  [28, 12, CROP_FIELD],
+  [29, 12, CROP_FIELD]
 ];
 
 export function getMap1() {

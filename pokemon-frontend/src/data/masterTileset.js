@@ -35,6 +35,55 @@ export const MASTER_TILESET = {
       description: "Path and road tiles (6x6, 90x90)"
     },
 
+    // houses-2.png: 612x408px → 18 cols × 12 rows = 216 tiles (IDs 61-276)
+    {
+      id: "houses2",
+      name: "Houses 2",
+      imagePath: "/assets/tiles/houses-2.png",
+      tileWidth: 33,
+      tileHeight: 32,
+      columns: 18,
+      atlasWidth: 612,
+      atlasHeight: 408,
+      startId: 61,
+      endId: 276,
+      walkable: false,
+      encounterRate: 0,
+      description: "Building tiles (33x32)"
+    },
+
+    // things.png: 1064x234px → 10 cols × 2 rows = 20 tiles (IDs 277-296)
+    {
+      id: "things",
+      name: "Things",
+      imagePath: "/assets/tiles/things.png",
+      tileWidth: 55,
+      tileHeight: 60,
+      columns: 10,
+      startId: 277,
+      endId: 296,
+      walkable: false,
+      encounterRate: 0,
+      description: "Props and items (55x60)"
+    },
+
+    // plants-2.png: 420x102px → 4 cols × 1 row = 4 tiles (IDs 297-300)
+    {
+      id: "plants2",
+      name: "Plants 2",
+      imagePath: "/assets/tiles/plants-2.png",
+      tileWidth: 104,
+      tileHeight: 96,
+      columns: 4,
+      atlasWidth: 420,
+      atlasHeight: 102,
+      startId: 297,
+      endId: 300,
+      walkable: false,
+      encounterRate: 0,
+      description: "Large plants (104x96)"
+    },
+
     // houses.png: 800x416px → 25 cols × 13 rows = 325 tiles (IDs 396-720)
     {
       id: "houses",
@@ -111,8 +160,8 @@ export function getTileStyle(tileId, renderSize = 40) {
   const columns = tileset.columns;
   const totalTiles = tileset.endId - tileset.startId + 1;
   const rows = Math.ceil(totalTiles / columns);
-  const atlasWidth  = columns * frame.width;
-  const atlasHeight = rows    * frame.height;
+  const atlasWidth  = tileset.atlasWidth ?? (columns * frame.width);
+  const atlasHeight = tileset.atlasHeight ?? (rows * frame.height);
 
   return {
     backgroundImage:    `url('${frame.imagePath}')`,

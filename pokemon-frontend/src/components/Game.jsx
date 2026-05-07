@@ -9,6 +9,7 @@ import { clampTileId, TILESET_MAX_ID } from "../data/tilesetMeta";
 import { movePlayer } from "../logic/movement";
 import { checkEncounter } from "../logic/encounter";
 import { map1Scales } from '../data/maps/map1Scales.js';
+import { map2Scales } from '../data/maps/map2Scales.js';
 
 const TILE = 40;
 const VIEWPORT_W = 900;
@@ -18,6 +19,7 @@ const SIDE_GATE_Y_MIN = 14;
 const SIDE_GATE_Y_MAX = 15;
 const VERTICAL_GATE_X_MIN = 14;
 const VERTICAL_GATE_X_MAX = 15;
+const MAP1_MAP2_GATE_Y = new Set([4, 5, 12]);
 
 // localStorage keys
 const STORAGE_KEYS = {
@@ -31,7 +33,7 @@ const STORAGE_KEYS = {
 // These are used as a fallback when localStorage has no saved scales.
 const DEFAULT_TILE_SCALES = {
   map1: map1Scales,
-  map2: {},  // add map2Scales when available
+  map2: map2Scales, 
   map5: {},  // add map5Scales when available
   map6: {},  // add map6Scales when available
 };
@@ -191,33 +193,46 @@ export default function Game() {
     if (gameState !== "map") return;
     if (paintMode) return;
 
-    const rightEdge = current[0].length - 2;
+    const rightEdge = current[0].length - 1;
+    const sideGateRightEdge = current[0].length - 2;
     const bottomEdge = current.length - 2;
     const atSideGate = isAtSideGate(player.y);
     const atVerticalGate = isAtVerticalGate(player.x);
+    const atMap1Map2GateY = MAP1_MAP2_GATE_Y.has(player.y);
 
     // Map transitions
-    if (player.x === rightEdge && key === "ArrowRight" && atSideGate) {
-      if (currentMap === "map1") {
-        setTransition(true);
-        setTimeout(() => {
-          setCurrentMap("map2");
-          setPlayer({ x: 2, y: player.y });
-          setTransition(false);
-        }, 300);
-      } else if (currentMap === "map5") {
+    if (currentMap === "map1" && player.x === rightEdge && key === "ArrowRight" && atMap1Map2GateY) {
+      setTransition(true);
+      setTimeout(() => {
+        setCurrentMap("map2");
+        setPlayer({ x: 0, y: player.y });
+        setTransition(false);
+      }, 300);
+      return;
+    }
+
+    if (currentMap === "map5" && player.x === sideGateRightEdge && key === "ArrowRight" && atSideGate) {
         setTransition(true);
         setTimeout(() => {
           setCurrentMap("map6");
           setPlayer({ x: 2, y: player.y });
           setTransition(false);
         }, 300);
-      }
       return;
     }
 
-    if (player.x === 1 && key === "ArrowLeft" && atSideGate) {
-      if (currentMap === "map6") {
+    if (currentMap === "map2" && player.x === 0 && key === "ArrowLeft" && atMap1Map2GateY) {
+      const nextMap = maps.map1;
+      setTransition(true);
+      setTimeout(() => {
+        setCurrentMap("map1");
+        setPlayer({ x: nextMap[0].length - 1, y: player.y });
+        setTransition(false);
+      }, 300);
+      return;
+    }
+
+    if (currentMap === "map6" && player.x === 1 && key === "ArrowLeft" && atSideGate) {
         const nextMap = maps.map5;
         setTransition(true);
         setTimeout(() => {
@@ -225,27 +240,11 @@ export default function Game() {
           setPlayer({ x: nextMap[0].length - 2, y: player.y });
           setTransition(false);
         }, 300);
-      } else if (currentMap === "map2") {
-        const nextMap = maps.map1;
-        setTransition(true);
-        setTimeout(() => {
-          setCurrentMap("map1");
-          setPlayer({ x: nextMap[0].length - 2, y: player.y });
-          setTransition(false);
-        }, 300);
-      }
       return;
     }
 
     if (player.y === bottomEdge && key === "ArrowDown" && atVerticalGate) {
-      if (currentMap === "map1") {
-        setTransition(true);
-        setTimeout(() => {
-          setCurrentMap("map5");
-          setPlayer({ x: player.x, y: 2 });
-          setTransition(false);
-        }, 300);
-      } else if (currentMap === "map2") {
+      if (currentMap === "map2") {
         setTransition(true);
         setTimeout(() => {
           setCurrentMap("map6");
@@ -257,15 +256,7 @@ export default function Game() {
     }
 
     if (player.y === 1 && key === "ArrowUp" && atVerticalGate) {
-      if (currentMap === "map5") {
-        const nextMap = maps.map1;
-        setTransition(true);
-        setTimeout(() => {
-          setCurrentMap("map1");
-          setPlayer({ x: player.x, y: nextMap.length - 2 });
-          setTransition(false);
-        }, 300);
-      } else if (currentMap === "map6") {
+      if (currentMap === "map6") {
         const nextMap = maps.map2;
         setTransition(true);
         setTimeout(() => {
