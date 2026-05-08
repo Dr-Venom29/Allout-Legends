@@ -1,5 +1,5 @@
-// pokemon-frontend/src/components/Tile.jsx
-import { getTileStyle } from "../data/masterTileset";
+// pokemon-frontend/src/components/game/Tile.jsx
+import { getTileStyle } from "../../data/masterTileset";
 
 export default function Tile({ type, onClick, onContextMenu, onMouseEnter, onMouseLeave, title, tileScale }) {
   const scale = tileScale ?? 1;
