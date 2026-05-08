@@ -195,7 +195,7 @@ export default function Game() {
 
     const rightEdge = current[0].length - 1;
     const sideGateRightEdge = current[0].length - 2;
-    const bottomEdge = current.length - 2;
+    const bottomEdge = current.length - 1;
     const atSideGate = isAtSideGate(player.y);
     const atVerticalGate = isAtVerticalGate(player.x);
     const atMap1Map2GateY = MAP1_MAP2_GATE_Y.has(player.y);
@@ -247,8 +247,8 @@ export default function Game() {
       if (currentMap === "map2") {
         setTransition(true);
         setTimeout(() => {
-          setCurrentMap("map6");
-          setPlayer({ x: player.x, y: 2 });
+          setCurrentMap("map5");
+          setPlayer({ x: player.x, y: 1 });
           setTransition(false);
         }, 300);
       }
@@ -256,7 +256,7 @@ export default function Game() {
     }
 
     if (player.y === 1 && key === "ArrowUp" && atVerticalGate) {
-      if (currentMap === "map6") {
+      if (currentMap === "map6" || currentMap === "map5") {
         const nextMap = maps.map2;
         setTransition(true);
         setTimeout(() => {

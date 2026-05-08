@@ -84,6 +84,57 @@ export const MASTER_TILESET = {
       description: "Large plants (104x96)"
     },
 
+    // grass-gym.png: 544x340px → 8 cols × 5 rows (IDs 301-340)
+    {
+      id: "grassGym",
+      name: "Grass Gym",
+      imagePath: "/assets/tiles/grass-gym.png",
+      tileWidth: 68,
+      tileHeight: 68,
+      columns: 8,
+      atlasWidth: 544,
+      atlasHeight: 340,
+      startId: 301,
+      endId: 340,
+      walkable: false,
+      encounterRate: 0,
+      description: "Grass gym tiles (68x68)"
+    },
+
+    // shop.png: 606x156px → 6 cols × 2 rows = 12 tiles (IDs 341-352)
+    {
+      id: "shop",
+      name: "Shop",
+      imagePath: "/assets/tiles/shop.png",
+      tileWidth: 101,
+      tileHeight: 78,
+      columns: 6,
+      atlasWidth: 606,
+      atlasHeight: 156,
+      startId: 341,
+      endId: 352,
+      walkable: false,
+      encounterRate: 0,
+      description: "Shop tiles (101x78)"
+    },
+
+    // things-2.png: 6 cols × 6 rows = 36 tiles (IDs 353-388)
+    {
+      id: "things2",
+      name: "Things 2",
+      imagePath: "/assets/tiles/things-2.png",
+      tileWidth: 91,
+      tileHeight: 86,
+      columns: 6,
+      atlasWidth: 546,
+      atlasHeight: 516,
+      startId: 353,
+      endId: 388,
+      walkable: false,
+      encounterRate: 0,
+      description: "Props and items (91x86)"
+    },
+
     // houses.png: 800x416px → 25 cols × 13 rows = 325 tiles (IDs 396-720)
     {
       id: "houses",
