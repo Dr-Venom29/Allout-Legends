@@ -1,15 +1,19 @@
 // pokemon-frontend/src/components/game/Tile.jsx
+import { memo } from "react";
 import { getTileStyle } from "../../data/masterTileset";
 
-export default function Tile({ type, onClick, onContextMenu, onMouseEnter, onMouseLeave, title, tileScale }) {
+const TILE_SIZE = 40;
+const TILE_SIZE_PX = `${TILE_SIZE}px`;
+
+function Tile({ type, onClick, onContextMenu, onMouseEnter, onMouseLeave, title, tileScale }) {
   const scale = tileScale ?? 1;
-  const baseStyle = getTileStyle(type, 40);
+  const baseStyle = getTileStyle(type, TILE_SIZE);
 
   if (!baseStyle || Object.keys(baseStyle).length === 0) {
     return (
       <div
         className="tile"
-        style={{ width: "40px", height: "40px", background: "#333", border: "1px solid #555" }}
+        style={{ width: TILE_SIZE_PX, height: TILE_SIZE_PX, background: "#333", border: "1px solid #555" }}
         onClick={onClick}
         onContextMenu={onContextMenu}
         onMouseEnter={onMouseEnter}
@@ -45,8 +49,8 @@ export default function Tile({ type, onClick, onContextMenu, onMouseEnter, onMou
       onMouseLeave={onMouseLeave}
       title={title || `Tile ID: ${type} (scale: ${Math.round(scale * 100)}%)`}
       style={{
-        width: "40px",
-        height: "40px",
+        width: TILE_SIZE_PX,
+        height: TILE_SIZE_PX,
         position: "relative",
         overflow: "hidden",
         background: "transparent",
@@ -66,3 +70,5 @@ export default function Tile({ type, onClick, onContextMenu, onMouseEnter, onMou
     </div>
   );
 }
+
+export default memo(Tile);

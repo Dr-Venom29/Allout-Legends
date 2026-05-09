@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Map from "./Map";
-import Battle from "../Battle";
+import Battle from "../battle/Battle";
 import MapEditor from "../MapEditor";
 import Sidebar from "../Sidebar";
 import { maps } from "../../data/maps";
@@ -79,8 +79,8 @@ export default function Game() {
   const [exportStatus, setExportStatus] =
     useState("");
 
-  const [encounterArea, setEncounterArea] =
-    useState("grass");
+  const [battleSeed, setBattleSeed] =
+    useState(0);
 
   const [activeSection, setActiveSection] =
     useState("profile");
@@ -200,8 +200,8 @@ export default function Game() {
         setTransition,
         setCurrentMap,
         setPlayer,
-        setEncounterArea,
         setGameState,
+        setBattleSeed,
       });
     },
     [player, current, currentMap, gameState, paintMode]
@@ -381,10 +381,11 @@ export default function Game() {
 
         {gameState === "battle" && (
           <Battle
+            key={battleSeed}
             exitBattle={() =>
               setGameState("map")
             }
-            area={encounterArea}
+            mapId={currentMap}
           />
         )}
       </div>

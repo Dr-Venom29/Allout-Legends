@@ -1,6 +1,8 @@
 // Battle calculation helpers
 import { POKEMON_DATA } from './pokemonData.js';
 
+const POKEMON_ENTRIES = Object.entries(POKEMON_DATA);
+
 // Type effectiveness chart (Gen 1-4 standard)
 export const TYPE_EFFECTIVENESS = {
   Normal: { Rock: 0.5, Ghost: 0, Steel: 0.5 },
@@ -30,6 +32,7 @@ export function calculateDamage(move, attacker, defender) {
   // Attack/Defense ratio
   const attackStat = move.category === 'physical' ? attacker.attack : attacker.spAttack;
   const defenseStat = move.category === 'physical' ? defender.defense : defender.spDefense;
+  const safeDefenseStat = Math.max(1, defenseStat);
   
   // Level factor
   const level = attacker.level || 5;
@@ -50,7 +53,11 @@ export function calculateDamage(move, attacker, defender) {
   const random = 0.85 + Math.random() * 0.15;
   
   // Damage formula
-  let damage = ((2 * level / 5 + 2) * movePower * (attackStat / defenseStat) / 50 + 2) * stab * effectiveness * random;
+  let damage = ((2 * level / 5 + 2) * movePower * (attackStat / safeDefenseStat) / 50 + 2) * stab * effectiveness * random;
+
+  if (effectiveness === 0) {
+    return 0;
+  }
   
   return Math.max(1, Math.floor(damage));
 }
@@ -76,7 +83,7 @@ export function getPokemonSprite(pokemonId) {
   // If it's a name, try to find its number from POKEMON_DATA
   if (typeof pokemonId === 'string') {
     // Find the Pokémon by InternalName or Name
-    const entry = Object.entries(POKEMON_DATA).find(([key, data]) => 
+    const entry = POKEMON_ENTRIES.find(([, data]) => 
       data.InternalName?.toLowerCase() === pokemonId.toLowerCase() ||
       data.Name?.toLowerCase() === pokemonId.toLowerCase()
     );
@@ -93,7 +100,9 @@ export function getPokemonSprite(pokemonId) {
 
 // Get Pokémon number from name
 export function getPokemonNumber(name) {
-  const entry = Object.entries(POKEMON_DATA).find(([key, data]) => 
+  if (!name) return null;
+
+  const entry = POKEMON_ENTRIES.find(([, data]) => 
     data.InternalName?.toLowerCase() === name.toLowerCase() ||
     data.Name?.toLowerCase() === name.toLowerCase()
   );
@@ -108,7 +117,7 @@ export function generateWildPokemon(pokemonData, level = null) {
   let pokemonNumber = null;
   let pokemonId = null;
   
-  for (const [id, data] of Object.entries(POKEMON_DATA)) {
+  for (const [id, data] of POKEMON_ENTRIES) {
     if (data.InternalName === pokemonData.InternalName || data.Name === pokemonData.Name) {
       pokemonNumber = id;
       pokemonId = data.InternalName;

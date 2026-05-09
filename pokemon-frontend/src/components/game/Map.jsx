@@ -1,10 +1,31 @@
 import Tile from "./Tile";
 
 const TILE_SIZE = 40;
+const PLAYER_AVATAR_SRC = "/assets/heros/Alpha_Coder.png";
 
-export default function Map({ map, camera, playerPos, paintMode = false, onTileClick, tileScales = {}, onTileHover }) {
+export default function Map({
+  map,
+  camera,
+  playerPos,
+  paintMode = false,
+  onTileClick,
+  tileScales = {},
+  onTileHover,
+}) {
+  if (!map?.length || !map[0]?.length) return null;
+
   const playerScreenX = playerPos.x * TILE_SIZE - camera.x + TILE_SIZE / 2;
   const playerScreenY = playerPos.y * TILE_SIZE - camera.y + TILE_SIZE / 2;
+
+  const createPaintHandler = (x, y) => (event) => {
+    event.preventDefault();
+    onTileClick?.(x, y, { action: "paint", shiftKey: event.shiftKey });
+  };
+
+  const createEraseHandler = (x, y) => (event) => {
+    event.preventDefault();
+    onTileClick?.(x, y, { action: "erase", shiftKey: false });
+  };
 
   return (
     <div className={`viewport ${paintMode ? "paint-mode" : ""}`}>
@@ -22,14 +43,8 @@ export default function Map({ map, camera, playerPos, paintMode = false, onTileC
             <Tile
               key={`${x}-${y}`}
               type={cell}
-              onClick={paintMode ? (event) => {
-                event.preventDefault();
-                onTileClick?.(x, y, { action: "paint", shiftKey: event.shiftKey });
-              } : undefined}
-              onContextMenu={paintMode ? (event) => {
-                event.preventDefault();
-                onTileClick?.(x, y, { action: "erase", shiftKey: false });
-              } : undefined}
+              onClick={paintMode ? createPaintHandler(x, y) : undefined}
+              onContextMenu={paintMode ? createEraseHandler(x, y) : undefined}
               onMouseEnter={onTileHover ? () => onTileHover({ x, y }) : undefined}
               onMouseLeave={onTileHover ? () => onTileHover(null) : undefined}
               tileScale={tileScales[`${x},${y}`]}
@@ -48,7 +63,7 @@ export default function Map({ map, camera, playerPos, paintMode = false, onTileC
       >
         <img
           className="player-avatar"
-          src="/assets/heros/Alpha_Coder.png"
+          src={PLAYER_AVATAR_SRC}
           alt="Player avatar"
         />
       </div>

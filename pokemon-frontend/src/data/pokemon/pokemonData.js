@@ -44077,4 +44077,18 @@ export function getRandomPokemon(minRarity = 0, maxRarity = 255) {
   return available[Math.floor(Math.random() * available.length)];
 }
 
+export function getRandomPokemonByType(type) {
+  if (!type) return null;
+
+  const targetType = type.toLowerCase();
+  const available = Object.values(POKEMON_DATA).filter(p => {
+    const type1 = p.Type1?.toLowerCase();
+    const type2 = p.Type2?.toLowerCase();
+    return type1 === targetType || type2 === targetType;
+  });
+
+  if (available.length === 0) return null;
+  return available[Math.floor(Math.random() * available.length)];
+}
+
 export default POKEMON_DATA;

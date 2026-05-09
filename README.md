@@ -1,19 +1,19 @@
-# 🎮 AllOut Legends - Pokémon-Style RPG Game
+# AllOut Legends - Pokemon-Style RPG Game
 
-A browser-based Pokémon-style game built with **React + Vite**, featuring a tile-based world, 493 Pokémon, turn-based battles, and a built-in map editor.
+A browser-based Pokemon-style game built with React + Vite, featuring a tile-based world, turn-based battles, and a built-in map editor.
 
 ---
 
-## 🚀 Current Features
+## Current Features
 
-### 🗺️ World System
+### World System
 
-* **4 interconnected realms** (map1, map2, map5, map6)
+* 4 interconnected realms (map1, map2, map5, map6)
 * Seamless transitions via gate system
-* Smooth camera (640×480 viewport)
-* 30×30 tile grid per realm
+* Smooth camera with dynamic height and 900px width
+* 30x30 tile grid per realm
 
-### 🎮 Game Systems
+### Game Systems
 
 * Keyboard controls (Arrow keys)
 * On-screen D-pad (mobile support)
@@ -21,16 +21,16 @@ A browser-based Pokémon-style game built with **React + Vite**, featuring a til
 * Player position persistence
 * Realm persistence
 
-### 🌿 Pokémon Encounters
+### Pokemon Encounters
 
 * Random encounters (8% chance in grass)
 * Biome-based encounters (grass, snow, cave, water)
-* **493 Pokémon (Gen 1–4)** with stats
-* Sprites: `/assets/pokemons/001.png` → `/493.png`
+* 493 Pokemon (Gen 1-4) with stats
+* Sprites: /assets/pokemons/001.png -> /493.png
 
 ---
 
-### ⚔️ Battle System
+### Battle System
 
 * Turn-based combat (FIGHT / RUN)
 * Type effectiveness (18 types)
@@ -41,68 +41,71 @@ A browser-based Pokémon-style game built with **React + Vite**, featuring a til
 
 ---
 
-### 🎨 Map Editor (In-Game)
+### Map Editor (In-Game)
 
-* Toggle with `P`
+* Toggle with P
 * Click to paint
 * Tile ID selector
-* Shift + click → rectangle fill
-* Right-click → erase
-* LocalStorage save/load/reset
+* Shift + click for rectangle fill
+* Right-click to erase
+* localStorage save/load/reset
 * JSON import/export
-* `Ctrl + S` to save
-* Tile browser (1083 tiles)
+* Ctrl + S to save
+* Tile browser
+* Per-tile sprite scale
 
 ---
 
-### 🧥 Skins Carousel (Profile)
+### Skins Carousel (Profile)
 
 * Full-screen skins modal from the Profile panel
 * 3D rotating carousel using PNG card art
-* Title banner set to **ALLOUT LEGENDS**
-* Images stored in `src/components/panels/images` and loaded by `SkinPanel`
-* Styling driven by `src/components/panels/style.css`
+* Title banner set to ALLOUT LEGENDS
+* Images stored in src/components/panels/images and loaded by SkinPanel
+* Styling driven by src/components/panels/style.css
 
 ---
 
-### 📊 Tile System
+### Tile System
 
-* **9 tilesets (1083 tiles total)**
+* Tilesets are defined in src/data/masterTileset.js
 
-| Tileset     | ID Range  |
-| ----------- | --------- |
-| crops       | 0–24      |
-| ground      | 88–227    |
-| houses-snow | 228–395   |
-| houses      | 396–720   |
-| rock-snow   | 721–752   |
-| rocks       | 753–856   |
-| trees-snow  | 857–926   |
-| trees       | 927–1070  |
-| plants      | 1081–1105 |
+| Tileset   | ID Range |
+| --------- | -------- |
+| crops     | 0-24     |
+| path      | 25-60    |
+| houses2   | 61-276   |
+| things    | 277-296  |
+| plants2   | 297-300  |
+| grassGym  | 301-340  |
+| shop      | 341-352  |
+| things2   | 353-388  |
+| houses    | 396-720  |
+| plants    | 1081-1105|
 
 ---
 
-### 🖼️ Tile ID Reference
+### Tile ID Reference
 
-* `/tile-id-reference.html`
+* /tile-id-reference.html
 * Visual tile browser
 * Click to copy ID
 * Search + filter support
 
 ---
 
-### 💾 Persistence
+### Persistence
 
 | Data            | Storage Key                  |
 | --------------- | ---------------------------- |
 | Map edits       | `allout_legends_paint_log`   |
 | Current map     | `allout_legends_current_map` |
 | Player position | `allout_legends_player_pos`  |
+| Tile scales     | `allout_legends_tile_scales` |
 
 ---
 
-## 🧱 Tech Stack
+## Tech Stack
 
 | Tech         | Purpose        |
 | ------------ | -------------- |
@@ -114,7 +117,7 @@ A browser-based Pokémon-style game built with **React + Vite**, featuring a til
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 pokemon-frontend/
@@ -129,11 +132,19 @@ pokemon-frontend/
 │
 ├── src/
 │   ├── components/
-│   │   ├── Game.jsx
+│   │   ├── game/
+│   │   │   ├── Game.jsx
+│   │   │   ├── Map.jsx
+│   │   │   ├── Tile.jsx
+│   │   │   └── systems/
+│   │   │       ├── keyboard.js
+│   │   │       ├── movement.js
+│   │   │       ├── paint.js
+│   │   │       ├── storage.js
+│   │   │       ├── storageHandlers.js
+│   │   │       └── uiState.js
 │   │   ├── Sidebar.jsx
 │   │   ├── MapEditor.jsx
-│   │   ├── Map.jsx
-│   │   ├── Tile.jsx
 │   │   ├── Battle.jsx
 │   │   └── TileViewer.jsx
 │   │   └── panels/
@@ -147,22 +158,18 @@ pokemon-frontend/
 │   ├── data/
 │   │   ├── maps.js
 │   │   ├── masterTileset.js
-│   │   ├── tileIds.js
 │   │   ├── tilesetMeta.js
-│   │   ├── tileMap.json
-│   │   ├── TILE_REFERENCE.txt
+│   │   ├── tileWalkability.js
 │   │   └── pokemon/
 │
 │   ├── logic/
 │   │   ├── movement.js
 │   │   └── encounter.js
 │
-│   ├── styles/
-│   │   ├── style.css
-│   │   └── index.css
-│
 │   ├── App.jsx
-│   └── main.jsx
+│   ├── main.jsx
+│   ├── style.css
+│   └── index.css
 │
 ├── scripts/
 │   ├── extract-tiles.cjs
@@ -175,7 +182,7 @@ pokemon-frontend/
 
 ---
 
-## 🎮 Controls
+## Controls
 
 | Action           | Key           |
 | ---------------- | ------------- |
@@ -187,15 +194,14 @@ pokemon-frontend/
 | Paint            | Left Click    |
 | Fill             | Shift + Click |
 | Erase            | Right Click   |
-| Tile Viewer      | T             |
 
 ---
 
-## 🧠 Map System
+## Map System
 
-* Maps = **2D tile ID arrays (30×30)**
+* Maps = 2D tile ID arrays (30x30)
 * Each tile maps to sprite
-* Grid movement (64px tiles)
+* Grid movement (40px tiles)
 
 ### Gates
 
@@ -205,7 +211,7 @@ pokemon-frontend/
 
 ---
 
-## ⚔️ Battle Formula
+## Battle Formula
 
 ```
 Damage = ((2 * Level / 5 + 2) * Power * (Attack / Defense) / 50 + 2)
@@ -214,7 +220,7 @@ Damage = ((2 * Level / 5 + 2) * Power * (Attack / Defense) / 50 + 2)
 
 ---
 
-## 🛠️ Setup
+## Setup
 
 ```
 git clone <repo>
@@ -225,7 +231,7 @@ npm run dev
 
 ---
 
-## 📋 Scripts
+## Scripts
 
 ```
 node scripts/parse-pokemon.cjs
@@ -234,7 +240,7 @@ node scripts/extract-tiles.cjs
 
 ---
 
-## 📦 Required Assets
+## Required Assets
 
 ### Pokémon
 
@@ -251,12 +257,12 @@ public/assets/tiles/*.png
 ### Hero
 
 ```
-public/assets/heros/Alpha Coder.png
+public/assets/heros/Alpha_Coder.png
 ```
 
 ---
 
-## ⚠️ Notes
+## Notes
 
 * `public/assets/` is **gitignored**
 * localStorage data is **not version-controlled**
@@ -264,7 +270,7 @@ public/assets/heros/Alpha Coder.png
 
 ---
 
-## 📊 Status
+## Status
 
 | Feature        | Status |
 | -------------- | ------ |
@@ -280,7 +286,7 @@ public/assets/heros/Alpha Coder.png
 
 ---
 
-## 🔮 Roadmap
+## Roadmap
 
 ### Gameplay
 
@@ -309,18 +315,18 @@ public/assets/heros/Alpha Coder.png
 
 ---
 
-## 👨‍💻 Author
+## Author
 
 Custom Pokémon engine inspired by Deluge RPG.
 
 ---
 
-## 📄 License
+## License
 
 MIT
 
 ---
 
-## 🎉 Version
+## Version
 
 **V1.0 — Core systems complete, 493 Pokémon integrated**

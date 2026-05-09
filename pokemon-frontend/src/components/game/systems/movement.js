@@ -51,8 +51,8 @@ export function handleMovement({
   setTransition,
   setCurrentMap,
   setPlayer,
-  setEncounterArea,
   setGameState,
+  setBattleSeed,
 }) {
   if (gameState !== "map") return;
   if (paintMode) return;
@@ -197,8 +197,8 @@ export function handleMovement({
     const encounter = checkEncounter(newPos.x, newPos.y, current);
 
     if (encounter.shouldBattle) {
-      setEncounterArea(encounter.area);
       setGameState("battle");
+      setBattleSeed((prev) => prev + 1);
     }
   }
 }
