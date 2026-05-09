@@ -325,8 +325,44 @@
   overflow: hidden;
 }
 
-.party-meter-fill {
-  height: 100%;
+.party-open-pc-button {
+  margin-left: auto;
+  border: 1px solid rgba(124, 246, 255, 0.45);
+  background: linear-gradient(180deg, rgba(12, 28, 44, 0.96), rgba(7, 16, 24, 0.96));
+  color: var(--party-accent);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-family: var(--party-font);
+  font-size: 9px;
+  letter-spacing: 1.8px;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(124, 246, 255, 0.08), 0 0 18px rgba(124, 246, 255, 0.12);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.party-open-pc-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(124, 246, 255, 0.75);
+  box-shadow: 0 0 0 1px rgba(124, 246, 255, 0.12), 0 0 22px rgba(124, 246, 255, 0.18);
+}
+
+.party-open-pc-button:focus-visible {
+  outline: 2px solid var(--party-accent);
+  outline-offset: 2px;
+}
+
+.party-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--party-text-dim);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
 }
 
 .party-meter-fill--hp {

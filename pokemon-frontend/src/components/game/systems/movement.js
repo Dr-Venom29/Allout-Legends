@@ -58,6 +58,17 @@ export function handleMovement({
   if (paintMode) return;
   if (transitionLockRef.current) return;
 
+  // Open PokeMart when standing in front of mart entrance on map2
+  if (
+    currentMap === "map2" &&
+    (player.x === 19 || player.x === 20) &&
+    player.y === 14 &&
+    key === "ArrowUp"
+  ) {
+    setGameState && setGameState("pokemart");
+    return;
+  }
+
   const rightEdge = current[0].length - 1;
   const sideGateRightEdge = current[0].length - 2;
   const bottomEdge = current.length - 1;

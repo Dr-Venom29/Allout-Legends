@@ -22,7 +22,6 @@ export default function ProfilePanel({ player, party }) {
     { id: 'search', label: 'Search Users', icon: '🔍' },
     { id: 'friends', label: 'Friends & Blocklist', icon: '👥' },
     { id: 'messages', label: 'Messages', icon: '💬', badge: 3 },
-    { id: 'pokemart', label: 'PokéMart', icon: '🏪' },
     { id: 'events', label: 'Events', icon: '🎪', badge: 1 },
   ];
 

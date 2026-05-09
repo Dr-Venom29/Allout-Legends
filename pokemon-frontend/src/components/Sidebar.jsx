@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import ProfilePanel from './panels/ProfilePanel';
 import PokedexPanel from './panels/PokedexPanel';
 import PokemonPartyPanel from './panels/PokemonPartyPanel';
+import PokemonPCPanel from './game/panels/PokemonPCPanel';
 import './Sidebar.css';
-import { getItemCount } from './game/inventory';
+import { getItemCount, ITEMS } from './game/inventory';
 
 const Icon = {
   profile: <img src="/assets/icons/profile.svg" alt="Profile" width={18} height={18} className="sidebar-svg-icon" />,
@@ -19,10 +20,12 @@ const Icon = {
 export default function Sidebar({
   player,
   party,
+  pcStorage,
   inventory,
   pokedex,
   activePartyIndex,
   setActivePartyIndex,
+  onOpenPC,
   onSectionChange,
   activeSection,
 }) {
@@ -78,6 +81,14 @@ export default function Sidebar({
             playerParty={party}
             activePartyIndex={activePartyIndex}
             setActivePartyIndex={setActivePartyIndex}
+            onOpenPC={onOpenPC}
+          />
+        );
+      case 'pokemon-pc':
+        return (
+          <PokemonPCPanel
+            pcStorage={pcStorage}
+            onClose={() => onSectionChange('pokemons')}
           />
         );
       case 'trade':
@@ -110,18 +121,23 @@ export default function Sidebar({
           </div>
         );
       case 'inventory': {
-        const pokeballs = getItemCount(inventory, 'pokeball');
-        const potions = getItemCount(inventory, 'potion');
-        const superPotions = getItemCount(inventory, 'superPotion');
-        const revives = getItemCount(inventory, 'revive');
         return (
           <div className="section-panel">
             <h3>Inventory</h3>
             <div className="inventory-list">
-              <p>Poké Balls <span>{pokeballs}</span></p>
-              <p>Potions <span>{potions}</span></p>
-              <p>Super Potions <span>{superPotions}</span></p>
-              <p>Revives <span>{revives}</span></p>
+              {Object.entries(ITEMS).map(([id, item]) => {
+                const count = getItemCount(inventory, id);
+                if (!count) return null;
+                return (
+                  <p key={id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {item.icon && (
+                      <img src={item.icon} alt={item.name} width={24} height={24} style={{ imageRendering: 'pixelated' }} />
+                    )}
+                    <span style={{ flex: '1 1 auto' }}>{item.name}</span>
+                    <span>{count}</span>
+                  </p>
+                );
+              })}
             </div>
           </div>
         );
@@ -192,7 +208,7 @@ export default function Sidebar({
 
       {/* ── Slide-out panel ───────────────────────────────────── */}
       <div
-        className={`section-content-area ${activeSection === 'pokedex' ? 'section-content-area--pokedex' : ''} ${activeSection === 'pokemons' ? 'section-content-area--party' : ''}`.trim()}
+        className={`section-content-area ${activeSection === 'pokedex' ? 'section-content-area--pokedex' : ''} ${activeSection === 'pokemons' ? 'section-content-area--party' : ''} ${activeSection === 'pokemon-pc' ? 'section-content-area--pc' : ''}`.trim()}
       >
         {renderContent()}
       </div>

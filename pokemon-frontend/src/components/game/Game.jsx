@@ -24,6 +24,8 @@ import {
   savePlayerParty,
   savePcStorage,
 } from "./playerStorage";
+import { loadPlayerMoney, savePlayerMoney } from "./playerStorage";
+import PokeMartPanel from "../panels/PokeMartPanel";
 import {
   MAP_NAMES,
   buildCurrentPaintLines,
@@ -107,6 +109,8 @@ export default function Game() {
 
   const [playerInventory, setPlayerInventory] =
     useState(() => loadPlayerInventory());
+
+  const [playerMoney, setPlayerMoney] = useState(() => loadPlayerMoney());
 
   const [playerParty, setPlayerParty] = useState(
     () => loadPlayerParty()
@@ -208,6 +212,10 @@ export default function Game() {
   useEffect(() => {
     savePcStorage(pcStorage);
   }, [pcStorage]);
+
+  useEffect(() => {
+    savePlayerMoney(playerMoney);
+  }, [playerMoney]);
 
   useEffect(() => {
     saveJSON(STORAGE_KEYS.POKEDEX, pokedex);
@@ -374,6 +382,10 @@ export default function Game() {
     );
   }, []);
 
+  const handleOpenPC = useCallback(() => {
+    setActiveSection("pokemon-pc");
+  }, []);
+
   return (
     <div className="game-container">
       <Sidebar
@@ -383,10 +395,12 @@ export default function Game() {
           mapId: currentMap,
         }}
         party={playerParty}
+        pcStorage={pcStorage}
         inventory={playerInventory}
         pokedex={pokedex}
         activePartyIndex={activePartyIndex}
         setActivePartyIndex={setActivePartyIndex}
+        onOpenPC={handleOpenPC}
         onSectionChange={handleSectionChange}
         activeSection={activeSection}
       />
@@ -485,6 +499,16 @@ export default function Game() {
             playerPokemon={activePokemon}
             onPokemonSeen={handlePokemonSeen}
             onPokemonCaught={handlePokemonCaught}
+          />
+        )}
+
+        {gameState === "pokemart" && (
+          <PokeMartPanel
+            inventory={playerInventory}
+            setInventory={setPlayerInventory}
+            money={playerMoney}
+            setMoney={setPlayerMoney}
+            onClose={() => setGameState("map")}
           />
         )}
       </div>

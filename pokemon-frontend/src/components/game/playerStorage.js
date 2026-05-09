@@ -3,6 +3,9 @@ import { loadJSON, saveJSON, STORAGE_KEYS } from "./systems/storage";
 const DEFAULT_INVENTORY = {
   pokeball: 10,
   potion: 5,
+  greatBall: 3,
+  ultraBall: 1,
+  masterBall: 1,
 };
 
 export function loadPlayerInventory() {
@@ -10,6 +13,17 @@ export function loadPlayerInventory() {
     STORAGE_KEYS.PLAYER_INVENTORY,
     DEFAULT_INVENTORY
   );
+}
+
+export function loadPlayerMoney() {
+  return loadJSON(
+    STORAGE_KEYS.PLAYER_MONEY,
+    5000
+  );
+}
+
+export function savePlayerMoney(money) {
+  return saveJSON(STORAGE_KEYS.PLAYER_MONEY, money);
 }
 
 export function savePlayerInventory(inventory) {

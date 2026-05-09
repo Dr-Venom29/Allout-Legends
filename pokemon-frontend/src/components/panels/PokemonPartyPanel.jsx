@@ -56,6 +56,7 @@ export default function PokemonPartyPanel({
   playerParty = [],
   activePartyIndex = 0,
   setActivePartyIndex,
+  onOpenPC,
 }) {
   const selectedPokemon = useMemo(() =>
     playerParty[activePartyIndex] ?? playerParty[0] ?? null,
@@ -220,7 +221,13 @@ export default function PokemonPartyPanel({
       <footer className="party-footer">
         <span>{partyCount} / 6 Pokemon</span>
         <span>Leader: {selectedPokemon?.name ?? "None"}</span>
-        <span>Click to select</span>
+        <button
+          className="party-open-pc-button"
+          onClick={onOpenPC}
+          type="button"
+        >
+          OPEN PC
+        </button>
       </footer>
     </section>
   );

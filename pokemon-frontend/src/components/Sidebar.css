@@ -324,8 +324,16 @@
   z-index: 260;
 }
 
+.section-content-area--pc {
+  left: var(--rail-w);
+  width: calc(100vw - var(--rail-w));
+  height: 100vh;
+  z-index: 260;
+}
+
 .section-content-area--pokedex > *,
-.section-content-area--party > * {
+.section-content-area--party > *,
+.section-content-area--pc > * {
   border-right: none;
 }
 

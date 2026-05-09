@@ -1,6 +1,11 @@
-export function attemptCapture(enemy, enemyHp) {
+export function attemptCapture(enemy, enemyHp, item) {
   if (!enemy || !enemy.maxHp) {
     return false;
+  }
+
+  // Master Ball or items marked as guaranteedCatch always succeed
+  if (item?.guaranteedCatch) {
+    return true;
   }
 
   const catchRate =
@@ -8,7 +13,7 @@ export function attemptCapture(enemy, enemyHp) {
     enemy.Rareness ??
     255;
 
-  const ballMultiplier = 1.0;
+  const ballMultiplier = item?.ballMultiplier ?? 1.0;
   const statusBonus = 1.0;
 
   const chance =

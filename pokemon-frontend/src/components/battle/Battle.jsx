@@ -184,11 +184,13 @@ export default function Battle({
     }
   };
 
-  const handleUsePokeball = () => {
+  const handleBallItem = (itemId) => {
     if (!enemy) return;
 
-    if (!hasItem(inventory, "pokeball")) {
-      setMessage("You have no Poké Balls left!");
+    const item = ITEMS[itemId];
+
+    if (!item) {
+      setMessage("Unknown ball.");
       setTimeout(() => {
         setPhase("action");
         setSelectedAction(0);
@@ -196,8 +198,23 @@ export default function Battle({
       return;
     }
 
-    setInventory((prev) => consumeItem(prev, "pokeball"));
-    const success = attemptCapture(enemy, enemyHp);
+    if (!hasItem(inventory, itemId)) {
+      setMessage(`You have no ${item.name}s left!`);
+      setTimeout(() => {
+        setPhase("action");
+        setSelectedAction(0);
+      }, 800);
+      return;
+    }
+
+    // Consume one
+    setInventory((prev) => consumeItem(prev, itemId));
+
+    // Friendly message
+    setMessage(`You threw a ${item.name}!`);
+
+    // Attempt capture using item metadata
+    const success = attemptCapture(enemy, enemyHp, item);
 
     if (success) {
       const stored = storeCapturedPokemon(enemy, party, pcStorage);
@@ -208,32 +225,22 @@ export default function Battle({
       if (Number.isFinite(numericId)) {
         onPokemonCaught?.(numericId);
       }
+
       setMessage(`Gotcha! ${enemy.name} was caught!`);
       setTimeout(() => exitBattle(), BATTLE_END_DELAY);
       return;
     }
 
-    setMessage("Oh no! The Pokémon broke free!");
+    // Not caught — enemy may attack
     setTimeout(() => {
+      setMessage("Oh no! The Pokémon broke free!");
       enemyAttack();
       setPhase("action");
       setSelectedAction(0);
     }, PLAYER_ATTACK_DELAY);
   };
 
-  const handleBallItem = (itemId) => {
-    if (itemId === "pokeball") {
-      handleUsePokeball();
-      return;
-    }
-
-    setMessage("This ball is not implemented yet.");
-
-    setTimeout(() => {
-      setPhase("action");
-      setSelectedAction(0);
-    }, 800);
-  };
+  
 
   const handleHealingItem = () => {
     setMessage("Healing items are not implemented yet.");
@@ -429,6 +436,13 @@ export default function Battle({
                     className="battle-btn"
                     onClick={() => handleUseItem(itemId)}
                   >
+                    {item.icon && (
+                      <img
+                        src={item.icon}
+                        alt={item.name}
+                        style={{ width: 24, height: 24, imageRendering: 'pixelated', marginRight: 8 }}
+                      />
+                    )}
                     {item.name} × {getItemCount(inventory, itemId)}
                   </button>
                 ))

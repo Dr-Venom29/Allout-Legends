@@ -3,6 +3,8 @@ export const ITEMS = {
     name: "Poké Ball",
     category: "ball",
     usableInBattle: true,
+    ballMultiplier: 1.0,
+    icon: "/assets/items/pokeball.png",
   },
   potion: {
     name: "Potion",
@@ -20,6 +22,27 @@ export const ITEMS = {
     name: "Revive",
     category: "revive",
     usableInBattle: true,
+  },
+  greatBall: {
+    name: "Great Ball",
+    category: "ball",
+    usableInBattle: true,
+    ballMultiplier: 1.5,
+    icon: "/assets/items/greatball.png",
+  },
+  ultraBall: {
+    name: "Ultra Ball",
+    category: "ball",
+    usableInBattle: true,
+    ballMultiplier: 2.0,
+    icon: "/assets/items/ultraball.png",
+  },
+  masterBall: {
+    name: "Master Ball",
+    category: "ball",
+    usableInBattle: true,
+    guaranteedCatch: true,
+    icon: "/assets/items/masterball.png",
   },
 };
 
