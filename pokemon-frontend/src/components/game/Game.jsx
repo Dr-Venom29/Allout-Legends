@@ -7,7 +7,7 @@ import { maps } from "../../data/maps";
 import { TILESET_MAX_ID } from "../../data/tilesetMeta";
 import { map1Scales } from "../../data/maps/map1Scales";
 import { map2Scales } from "../../data/maps/map2Scales";
-import { STORAGE_KEYS } from "./systems/storage";
+import { STORAGE_KEYS, saveJSON } from "./systems/storage";
 import { handleMovement } from "./systems/movement";
 import { handlePaint } from "./systems/paint";
 import { setupKeyboard } from "./systems/keyboard";
@@ -29,6 +29,11 @@ import {
   buildCurrentPaintLines,
   getTerrainName,
 } from "./systems/uiState";
+import { loadPokedex } from "./pokedexStorage";
+import {
+  markPokemonCaught,
+  markPokemonSeen,
+} from "./pokedex";
 
 const TILE = 40;
 const VIEWPORT_W = 900;
@@ -110,6 +115,10 @@ export default function Game() {
     () => loadPcStorage()
   );
 
+  const [pokedex, setPokedex] = useState(
+    () => loadPokedex()
+  );
+
   const [paintLog, setPaintLog] = useState(() => {
     const savedLog = loadSavedPaintLog();
     applySavedOverridesToMaps(savedLog);
@@ -176,6 +185,10 @@ export default function Game() {
   useEffect(() => {
     savePcStorage(pcStorage);
   }, [pcStorage]);
+
+  useEffect(() => {
+    saveJSON(STORAGE_KEYS.POKEDEX, pokedex);
+  }, [pokedex]);
 
   const setPositionScale = useCallback(
     (mapName, x, y, scale) => {
@@ -309,6 +322,30 @@ export default function Game() {
     console.log(`Switched to: ${section}`);
   };
 
+  const handlePokemonSeen = useCallback((pokemonId) => {
+    const numericId = Number(pokemonId);
+
+    if (!Number.isFinite(numericId)) {
+      return;
+    }
+
+    setPokedex((prev) =>
+      markPokemonSeen(prev, numericId)
+    );
+  }, []);
+
+  const handlePokemonCaught = useCallback((pokemonId) => {
+    const numericId = Number(pokemonId);
+
+    if (!Number.isFinite(numericId)) {
+      return;
+    }
+
+    setPokedex((prev) =>
+      markPokemonCaught(prev, numericId)
+    );
+  }, []);
+
   return (
     <div className="game-container">
       <Sidebar
@@ -319,6 +356,7 @@ export default function Game() {
         }}
         party={playerParty}
         inventory={playerInventory}
+        pokedex={pokedex}
         onSectionChange={handleSectionChange}
         activeSection={activeSection}
       />
@@ -414,6 +452,8 @@ export default function Game() {
             setParty={setPlayerParty}
             pcStorage={pcStorage}
             setPcStorage={setPcStorage}
+            onPokemonSeen={handlePokemonSeen}
+            onPokemonCaught={handlePokemonCaught}
           />
         )}
       </div>

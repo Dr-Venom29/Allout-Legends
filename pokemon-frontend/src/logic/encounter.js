@@ -2,7 +2,7 @@
 import { isTileWalkable } from "../data/tileWalkability";
 
 // Road/path tiles are safe zones with no wild Pokemon encounters.
-const NO_ENCOUNTER_TILE_IDS = new Set([43, 44, 45, 46, 47, 48]);
+const NO_ENCOUNTER_TILE_IDS = new Set([43, 44, 45, 46, 47, 48,326,327,328,329,330,331,336,337,332,325]);
 const ENCOUNTER_RATE = 0.12;
 
 export function checkEncounter(x, y, map) {

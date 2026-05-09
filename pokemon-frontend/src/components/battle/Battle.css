@@ -1,0 +1,385 @@
+/*
+	Battle.css
+	Retro Game Boy Advance-inspired battle UI.
+*/
+
+/* =========================================
+	 Variables
+	 ========================================= */
+:root {
+	--battle-black: #1a1a1a;
+	--battle-cream: #f8f0d8;
+	--battle-dialogue: #fff8dc;
+	--battle-green: #d8f0b0;
+	--battle-sky: #b8e8ff;
+	--battle-button: #f5e6b8;
+	--battle-button-hover: #fff2c4;
+	--battle-gold: #ffd54a;
+	--battle-text: #222222;
+	--battle-panel-blue: #c9d8e8;
+	--battle-panel-gray: #d8d8d8;
+	--battle-hp-bg: #6c6c6c;
+	--battle-hp-high: #48d848;
+	--battle-hp-med: #f8d030;
+	--battle-hp-low: #f85858;
+	--battle-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+	--battle-radius: 10px;
+	--battle-border: 3px solid var(--battle-black);
+	--battle-font: "Press Start 2P", "Courier New", monospace;
+	--battle-letter-spacing: 1px;
+}
+
+/* =========================================
+	 Global Container
+	 ========================================= */
+.battle-container {
+	width: 100%;
+	max-width: 960px;
+	margin: 24px auto;
+	padding: 20px;
+	background: linear-gradient(180deg, var(--battle-sky) 0%, #cfeeff 40%, var(--battle-green) 100%);
+	border: 4px solid var(--battle-black);
+	border-radius: var(--battle-radius);
+	box-shadow: var(--battle-shadow);
+	font-family: var(--battle-font);
+	color: var(--battle-text);
+	letter-spacing: var(--battle-letter-spacing);
+	text-transform: uppercase;
+	position: relative;
+}
+
+/* =========================================
+	 Battle Scene
+	 ========================================= */
+.battle-scene {
+	position: relative;
+	height: clamp(360px, 55vw, 520px);
+	background:
+		radial-gradient(ellipse at 30% 70%, rgba(146, 206, 132, 0.55) 0%, rgba(216, 240, 176, 0.7) 55%, rgba(216, 240, 176, 0) 70%),
+		radial-gradient(ellipse at 70% 40%, rgba(146, 206, 132, 0.55) 0%, rgba(216, 240, 176, 0.7) 55%, rgba(216, 240, 176, 0) 70%),
+		linear-gradient(180deg, #eaf8c7 0%, var(--battle-green) 100%);
+	border: var(--battle-border);
+	box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+	overflow: hidden;
+}
+
+.battle-scene::before,
+.battle-scene::after {
+	content: "";
+	position: absolute;
+	width: 60%;
+	height: 30%;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(120, 180, 110, 0.65) 0%, rgba(120, 180, 110, 0.2) 60%, rgba(120, 180, 110, 0) 70%);
+	pointer-events: none;
+}
+
+.battle-scene::before {
+	left: 5%;
+	top: 18%;
+}
+
+.battle-scene::after {
+	right: 5%;
+	bottom: 10%;
+}
+
+/* =========================================
+	 Enemy Area
+	 ========================================= */
+.enemy-area {
+	position: absolute;
+	top: 6%;
+	left: 6%;
+	right: 6%;
+	height: 40%;
+}
+
+.enemy-card {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: clamp(200px, 32%, 280px);
+	background: var(--battle-cream);
+	border: var(--battle-border);
+	box-shadow: inset 0 0 0 2px #ffffff, 4px 4px 0 rgba(0, 0, 0, 0.2);
+	padding: 10px 12px 8px 12px;
+	transform: rotate(1.5deg);
+}
+
+.enemy-name {
+	font-weight: 700;
+	font-size: 0.8rem;
+	margin-bottom: 6px;
+}
+
+.enemy-level {
+	position: absolute;
+	top: 10px;
+	right: 12px;
+	font-size: 0.7rem;
+}
+
+.enemy-sprite {
+	position: absolute;
+	left: 0;
+	top: 10%;
+	width: clamp(160px, 28%, 220px);
+	height: auto;
+	image-rendering: pixelated;
+	filter: drop-shadow(4px 6px 0 rgba(0, 0, 0, 0.25));
+	animation: sprite-float 3.2s ease-in-out infinite;
+	transition: transform 180ms ease;
+}
+
+.sprite-enemy:hover {
+	transform: scale(1.03);
+}
+
+/* =========================================
+	 Player Area
+	 ========================================= */
+.player-battle-area {
+	position: absolute;
+	left: 6%;
+	right: 6%;
+	bottom: 6%;
+	height: 44%;
+}
+
+.player-card-battle {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	width: clamp(240px, 38%, 320px);
+	background: var(--battle-cream);
+	border: var(--battle-border);
+	box-shadow: inset 0 0 0 2px #ffffff, 4px 4px 0 rgba(0, 0, 0, 0.2);
+	padding: 12px 14px 10px 14px;
+	transform: rotate(-1.2deg);
+}
+
+.player-battle-sprite {
+	position: absolute;
+	right: 0;
+	bottom: 4%;
+	width: clamp(180px, 30%, 240px);
+	height: auto;
+	image-rendering: pixelated;
+	filter: drop-shadow(4px 6px 0 rgba(0, 0, 0, 0.25));
+	animation: sprite-float 3.4s ease-in-out infinite;
+	transition: transform 180ms ease;
+}
+
+.sprite-player:hover {
+	transform: scale(1.03);
+}
+
+/* =========================================
+	 HP Bars
+	 ========================================= */
+.battle-hp-bar {
+	width: 100%;
+	height: 14px;
+	background: var(--battle-hp-bg);
+	border: 2px solid var(--battle-black);
+	margin: 6px 0 4px 0;
+	position: relative;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.battle-hp-fill {
+	height: 100%;
+	width: 100%;
+	transition: width 260ms ease;
+	background: var(--battle-hp-high);
+}
+
+.battle-hp-fill.high {
+	background: var(--battle-hp-high);
+}
+
+.battle-hp-fill.medium {
+	background: var(--battle-hp-med);
+}
+
+.battle-hp-fill.low {
+	background: var(--battle-hp-low);
+}
+
+.battle-hp-text {
+	text-align: right;
+	font-size: 0.7rem;
+}
+
+/* =========================================
+	 Bottom UI
+	 ========================================= */
+.battle-ui {
+	margin-top: 16px;
+	display: grid;
+	gap: 12px;
+	animation: ui-fade-in 320ms ease;
+}
+
+.battle-message {
+	background: var(--battle-dialogue);
+	border: var(--battle-border);
+	min-height: 100px;
+	padding: 18px 20px;
+	box-shadow: inset 0 0 0 2px #ffffff, 4px 4px 0 rgba(0, 0, 0, 0.2);
+	display: flex;
+	align-items: center;
+}
+
+.battle-text {
+	font-size: 0.85rem;
+	line-height: 1.6;
+	letter-spacing: 1px;
+}
+
+.battle-actions {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.battle-btn {
+	background: var(--battle-button);
+	border: var(--battle-border);
+	box-shadow: inset 0 0 0 2px #ffffff, 3px 3px 0 rgba(0, 0, 0, 0.2);
+	padding: 14px 16px;
+	font-size: 0.75rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	cursor: pointer;
+	transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.battle-btn:hover {
+	transform: translateY(-2px);
+	background: var(--battle-button-hover);
+	box-shadow: inset 0 0 0 2px #ffffff, 5px 5px 0 rgba(0, 0, 0, 0.25);
+}
+
+.battle-btn:active {
+	transform: translateY(1px);
+	box-shadow: inset 0 0 0 2px #ffffff, 2px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.battle-btn.selected {
+	border-color: var(--battle-gold);
+	box-shadow: inset 0 0 0 2px rgba(255, 213, 74, 0.6), 4px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.battle-btn:disabled {
+	background: var(--battle-panel-gray);
+	opacity: 0.7;
+	cursor: not-allowed;
+	transform: none;
+	box-shadow: inset 0 0 0 2px #ffffff, 2px 2px 0 rgba(0, 0, 0, 0.12);
+}
+
+/* =========================================
+	 Error State
+	 ========================================= */
+.battle-error {
+	background: #ffdede;
+	border: var(--battle-border);
+	padding: 16px;
+	font-size: 0.8rem;
+	box-shadow: inset 0 0 0 2px #ffffff;
+}
+
+/* =========================================
+	 Animations
+	 ========================================= */
+@keyframes sprite-float {
+	0% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-6px);
+	}
+	100% {
+		transform: translateY(0);
+	}
+}
+
+@keyframes ui-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* =========================================
+	 Responsive
+	 ========================================= */
+@media (max-width: 900px) {
+	.battle-container {
+		padding: 16px;
+	}
+
+	.enemy-card {
+		width: clamp(180px, 40%, 240px);
+	}
+
+	.player-card-battle {
+		width: clamp(220px, 44%, 280px);
+	}
+
+	.enemy-sprite {
+		width: clamp(140px, 28%, 200px);
+	}
+
+	.player-battle-sprite {
+		width: clamp(160px, 30%, 210px);
+	}
+}
+
+@media (max-width: 700px) {
+	.battle-container {
+		padding: 14px;
+	}
+
+	.battle-text {
+		font-size: 0.75rem;
+	}
+
+	.battle-btn {
+		font-size: 0.7rem;
+		padding: 12px 14px;
+	}
+
+	.enemy-card,
+	.player-card-battle {
+		transform: none;
+	}
+}
+
+@media (max-width: 560px) {
+	.battle-scene {
+		height: clamp(320px, 75vw, 420px);
+	}
+
+	.battle-actions {
+		grid-template-columns: 1fr;
+	}
+
+	.battle-message {
+		padding: 14px 16px;
+	}
+
+	.enemy-sprite {
+		width: clamp(120px, 32%, 160px);
+	}
+
+	.player-battle-sprite {
+		width: clamp(140px, 36%, 190px);
+	}
+}

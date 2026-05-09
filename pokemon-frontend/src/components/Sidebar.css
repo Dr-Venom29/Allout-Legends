@@ -309,6 +309,18 @@
   overflow: hidden;
 }
 
+/* Full-screen override for Pokedex */
+.section-content-area--pokedex {
+  left: var(--rail-w);
+  width: calc(100vw - var(--rail-w));
+  height: 100vh;
+  z-index: 260;
+}
+
+.section-content-area--pokedex > * {
+  border-right: none;
+}
+
 .section-content-area:empty { display: none; }
 
 .section-content-area > * {

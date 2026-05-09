@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import "./Battle.css";
 
 import {
   ACTIONS,
@@ -71,11 +72,8 @@ const PLAYER_POKEMON = {
   sprite: "/assets/pokemons/025.png",
 };
 
-const DEFAULT_ENEMY_SPRITE =
-  "/assets/pokemons/000.png";
-
-const DEFAULT_PLAYER_SPRITE =
-  "/assets/pokemons/025.png";
+const DEFAULT_ENEMY_SPRITE = "/assets/pokemons/000.png";
+const DEFAULT_PLAYER_SPRITE = "/assets/pokemons/025.png";
 
 export default function Battle({
   exitBattle,
@@ -86,6 +84,8 @@ export default function Battle({
   setParty,
   pcStorage,
   setPcStorage,
+  onPokemonSeen,
+  onPokemonCaught,
 }) {
   const initialWildPokemon = useMemo(
     () => createWildBattle(mapId),
@@ -93,56 +93,41 @@ export default function Battle({
   );
 
   // eslint-disable-next-line no-unused-vars -- reserved for future battle effects
-  const [enemy, setEnemy] = useState(
-    initialWildPokemon
-  );
+  const [enemy, setEnemy] = useState(initialWildPokemon);
   const [enemyHp, setEnemyHp] = useState(
     initialWildPokemon ? initialWildPokemon.hp : 0
   );
-
-  const [playerHp, setPlayerHp] = useState(
-    PLAYER_POKEMON.hp
-  );
-
+  const [playerHp, setPlayerHp] = useState(PLAYER_POKEMON.hp);
   const [message, setMessage] = useState(
     initialWildPokemon
       ? `A wild ${initialWildPokemon.name} (Lv.${initialWildPokemon.level}) appeared!`
       : "Error loading Pokémon!"
   );
-
-  const [selectedAction, setSelectedAction] =
-    useState(0);
-
-  const [selectedMove, setSelectedMove] =
-    useState(0);
-
+  const [selectedAction, setSelectedAction] = useState(0);
+  const [selectedMove, setSelectedMove] = useState(0);
   const [phase, setPhase] = useState("action");
+
+  useEffect(() => {
+    const numericId = Number(enemy?.number);
+
+    if (Number.isFinite(numericId)) {
+      onPokemonSeen?.(numericId);
+    }
+  }, [enemy, onPokemonSeen]);
 
   const enemyAttack = () => {
     if (!enemy) return;
-
-    const result = performEnemyAttack(
-      enemy,
-      playerHp
-    );
-
+    const result = performEnemyAttack(enemy, playerHp);
     setPlayerHp(result.newHp);
     setMessage(result.message);
-
     if (result.playerDefeated) {
-      setMessage(
-        `${enemy.name} defeated your Pokémon! You blacked out!`
-      );
-
-      setTimeout(() => {
-        exitBattle();
-      }, BATTLE_END_DELAY);
+      setMessage(`${enemy.name} defeated your Pokémon! You blacked out!`);
+      setTimeout(() => exitBattle(), BATTLE_END_DELAY);
     }
   };
 
   const handleAction = (idx) => {
     setSelectedAction(idx);
-
     const action = ACTIONS[idx];
 
     if (action === "FIGHT") {
@@ -160,10 +145,7 @@ export default function Battle({
     if (action === "RUN") {
       if (tryRun()) {
         setMessage("Got away safely!");
-
-        setTimeout(() => {
-          exitBattle();
-        }, RUN_SUCCESS_DELAY);
+        setTimeout(() => exitBattle(), RUN_SUCCESS_DELAY);
       } else {
         setMessage("Couldn't escape!");
         setPhase("action");
@@ -184,38 +166,24 @@ export default function Battle({
       return;
     }
 
-    setInventory((prev) =>
-      consumeItem(prev, "pokeball")
-    );
-
-    const success = attemptCapture(
-      enemy,
-      enemyHp
-    );
+    setInventory((prev) => consumeItem(prev, "pokeball"));
+    const success = attemptCapture(enemy, enemyHp);
 
     if (success) {
-      const stored = storeCapturedPokemon(
-        enemy,
-        party,
-        pcStorage
-      );
-
+      const stored = storeCapturedPokemon(enemy, party, pcStorage);
       setParty(stored.party);
       setPcStorage(stored.pcStorage);
+      const numericId = Number(enemy.number);
 
-      setMessage(
-        `Gotcha! ${enemy.name} was caught!`
-      );
-
-      setTimeout(() => {
-        exitBattle();
-      }, BATTLE_END_DELAY);
-
+      if (Number.isFinite(numericId)) {
+        onPokemonCaught?.(numericId);
+      }
+      setMessage(`Gotcha! ${enemy.name} was caught!`);
+      setTimeout(() => exitBattle(), BATTLE_END_DELAY);
       return;
     }
 
     setMessage("Oh no! The Pokémon broke free!");
-
     setTimeout(() => {
       enemyAttack();
       setPhase("action");
@@ -223,14 +191,13 @@ export default function Battle({
     }, PLAYER_ATTACK_DELAY);
   };
 
-  const handleUseItem = (itemId) => {
+  const handleBallItem = (itemId) => {
     if (itemId === "pokeball") {
       handleUsePokeball();
       return;
     }
 
-    const itemName = ITEMS[itemId]?.name ?? "Item";
-    setMessage(`${itemName} is not implemented yet.`);
+    setMessage("This ball is not implemented yet.");
 
     setTimeout(() => {
       setPhase("action");
@@ -238,13 +205,51 @@ export default function Battle({
     }, 800);
   };
 
+  const handleHealingItem = () => {
+    setMessage("Healing items are not implemented yet.");
+
+    setTimeout(() => {
+      setPhase("action");
+      setSelectedAction(0);
+    }, 800);
+  };
+
+  const handleReviveItem = () => {
+    setMessage("Revives are not implemented yet.");
+
+    setTimeout(() => {
+      setPhase("action");
+      setSelectedAction(0);
+    }, 800);
+  };
+
+  const handleUseItem = (itemId) => {
+    const item = ITEMS[itemId];
+
+    if (!item) {
+      setMessage("Unknown item.");
+      return;
+    }
+
+    switch (item.category) {
+      case "ball":
+        handleBallItem(itemId);
+        return;
+      case "healing":
+        handleHealingItem(itemId);
+        return;
+      case "revive":
+        handleReviveItem(itemId);
+        return;
+      default:
+        setMessage("This item cannot be used.");
+    }
+  };
+
   const handleMove = (idx) => {
     if (!enemy) return;
-
     setSelectedMove(idx);
-
     const move = PLAYER_POKEMON.moves[idx];
-
     const result = performPlayerMove({
       move,
       playerPokemon: PLAYER_POKEMON,
@@ -254,29 +259,20 @@ export default function Battle({
 
     setMessage(result.message);
 
-    // Status move
     if (result.isStatusMove) {
       setTimeout(() => {
         setPhase("action");
         setSelectedAction(0);
         enemyAttack();
       }, STATUS_MOVE_DELAY);
-
       return;
     }
 
-    // Damage move
     setEnemyHp(result.newHp);
 
     if (result.enemyDefeated) {
-      setMessage(
-        `${enemy.name} fainted! You won!`
-      );
-
-      setTimeout(() => {
-        exitBattle();
-      }, BATTLE_END_DELAY);
-
+      setMessage(`${enemy.name} fainted! You won!`);
+      setTimeout(() => exitBattle(), BATTLE_END_DELAY);
       return;
     }
 
@@ -290,79 +286,46 @@ export default function Battle({
   if (!enemy) {
     return (
       <div className="battle-container">
-        <div
-          style={{
-            textAlign: "center",
-            padding: "200px",
-          }}
-        >
-          {message}
-        </div>
+        <div className="battle-error">{message}</div>
       </div>
     );
   }
 
-  const enemyHpPercent = getHpPercent(
-    enemyHp,
-    enemy.maxHp
-  );
+  const enemyHpPercent = getHpPercent(enemyHp, enemy.maxHp);
+  const enemyHpClass = getHpClass(enemyHpPercent);
+  const playerHpPercent = getHpPercent(playerHp, PLAYER_POKEMON.maxHp);
+  const playerHpClass = getHpClass(playerHpPercent);
 
-  const enemyHpClass =
-    getHpClass(enemyHpPercent);
-
-  const playerHpPercent = getHpPercent(
-    playerHp,
-    PLAYER_POKEMON.maxHp
+  const bagItems = Object.entries(ITEMS).filter(
+    ([itemId, item]) =>
+      item.usableInBattle && getItemCount(inventory, itemId) > 0
   );
 
   return (
     <div className="battle-container">
       <div className="battle-scene">
+
         {/* Enemy */}
         <div className="enemy-area">
           <div className="enemy-card">
-            <div className="enemy-name">
-              {enemy.name}
-            </div>
-
-            <div className="enemy-level">
-              Lv.{enemy.level}
-            </div>
-
+            <div className="enemy-name">{enemy.name}</div>
+            <div className="enemy-level">Lv.{enemy.level}</div>
             <div className="battle-hp-bar">
               <div
                 className={`battle-hp-fill ${enemyHpClass}`}
-                style={{
-                  width: `${enemyHpPercent}%`,
-                }}
+                style={{ width: `${enemyHpPercent}%` }}
               />
             </div>
-
-            <div
-              style={{
-                fontSize: "5px",
-                color: "#555",
-                marginTop: "3px",
-                fontFamily: "inherit",
-              }}
-            >
+            <div className="battle-hp-text">
               {enemyHp}/{enemy.maxHp} HP
             </div>
           </div>
-
           <div className="enemy-sprite">
             <img
               src={enemy.sprite}
               alt={enemy.name}
-              style={{
-                width: "80px",
-                height: "80px",
-                imageRendering: "pixelated",
-              }}
-              onError={(e) => {
-                e.target.src =
-                  DEFAULT_ENEMY_SPRITE;
-              }}
+              className="sprite-enemy"
+              onError={(e) => { e.target.src = DEFAULT_ENEMY_SPRITE; }}
             />
           </div>
         </div>
@@ -373,57 +336,31 @@ export default function Battle({
             <img
               src={PLAYER_POKEMON.sprite}
               alt={PLAYER_POKEMON.name}
-              style={{
-                width: "64px",
-                height: "64px",
-                imageRendering: "pixelated",
-              }}
-              onError={(e) => {
-                e.target.src =
-                  DEFAULT_PLAYER_SPRITE;
-              }}
+              className="sprite-player"
+              onError={(e) => { e.target.src = DEFAULT_PLAYER_SPRITE; }}
             />
           </div>
-
           <div className="player-card-battle">
-            <div className="enemy-name">
-              {PLAYER_POKEMON.name}
-            </div>
-
-            <div className="enemy-level">
-              Lv.{PLAYER_POKEMON.level}
-            </div>
-
+            <div className="enemy-name">{PLAYER_POKEMON.name}</div>
+            <div className="enemy-level">Lv.{PLAYER_POKEMON.level}</div>
             <div className="battle-hp-bar">
               <div
-                className="battle-hp-fill"
-                style={{
-                  width: `${playerHpPercent}%`,
-                }}
+                className={`battle-hp-fill ${playerHpClass}`}
+                style={{ width: `${playerHpPercent}%` }}
               />
             </div>
-
-            <div
-              style={{
-                fontSize: "5px",
-                color: "#555",
-                marginTop: "3px",
-                fontFamily: "inherit",
-              }}
-            >
-              {playerHp}/
-              {PLAYER_POKEMON.maxHp} HP
+            <div className="battle-hp-text">
+              {playerHp}/{PLAYER_POKEMON.maxHp} HP
             </div>
           </div>
         </div>
+
       </div>
 
       {/* Battle UI */}
       <div className="battle-ui">
         <div className="battle-message">
-          <div className="battle-text">
-            {message}
-          </div>
+          <div className="battle-text">{message}</div>
         </div>
 
         <div className="battle-actions">
@@ -431,11 +368,7 @@ export default function Battle({
             ACTIONS.map((action, i) => (
               <button
                 key={action}
-                className={`battle-btn ${
-                  selectedAction === i
-                    ? "selected"
-                    : ""
-                }`}
+                className={`battle-btn${selectedAction === i ? " selected" : ""}`}
                 onClick={() => handleAction(i)}
               >
                 {action}
@@ -446,72 +379,41 @@ export default function Battle({
             PLAYER_POKEMON.moves.map((move, i) => (
               <button
                 key={move.name}
-                className={`battle-btn ${
-                  selectedMove === i
-                    ? "selected"
-                    : ""
-                }`}
+                className={`battle-btn${selectedMove === i ? " selected" : ""}`}
                 onClick={() => handleMove(i)}
               >
                 {move.name}
               </button>
             ))}
 
-          {phase === "bag" && (() => {
-            const bagItems = Object.entries(ITEMS)
-              .filter(
-                ([itemId, item]) =>
-                  item.usableInBattle &&
-                  getItemCount(inventory, itemId) > 0
-              );
-
-            if (bagItems.length === 0) {
-              return (
-                <>
-                  <button
-                    className="battle-btn"
-                    disabled
-                  >
-                    No usable items.
-                  </button>
-                  <button
-                    className="battle-btn"
-                    onClick={() => {
-                      setPhase("action");
-                      setSelectedAction(0);
-                    }}
-                  >
-                    Back
-                  </button>
-                </>
-              );
-            }
-
-            return (
-              <>
-                {bagItems.map(([itemId, item]) => (
+          {phase === "bag" && (
+            <>
+              {bagItems.length === 0 ? (
+                <button className="battle-btn" disabled>
+                  No usable items.
+                </button>
+              ) : (
+                bagItems.map(([itemId, item]) => (
                   <button
                     key={itemId}
                     className="battle-btn"
-                    onClick={() =>
-                      handleUseItem(itemId)
-                    }
+                    onClick={() => handleUseItem(itemId)}
                   >
                     {item.name} × {getItemCount(inventory, itemId)}
                   </button>
-                ))}
-                <button
-                  className="battle-btn"
-                  onClick={() => {
-                    setPhase("action");
-                    setSelectedAction(0);
-                  }}
-                >
-                  Back
-                </button>
-              </>
-            );
-          })()}
+                ))
+              )}
+              <button
+                className="battle-btn"
+                onClick={() => {
+                  setPhase("action");
+                  setSelectedAction(0);
+                }}
+              >
+                Back
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

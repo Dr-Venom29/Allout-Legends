@@ -1,6 +1,7 @@
 // pokemon-frontend/src/components/Sidebar.jsx
 import { useState, useEffect } from 'react';
 import ProfilePanel from './panels/ProfilePanel';
+import PokedexPanel from './panels/PokedexPanel';
 import './Sidebar.css';
 import { getItemCount } from './game/inventory';
 
@@ -11,12 +12,14 @@ const Icon = {
   tasks: <img src="/assets/icons/tasks.svg" alt="Tasks" width={18} height={18} className="sidebar-svg-icon" />,
   settings: <img src="/assets/icons/settings.svg" alt="Settings" width={18} height={18} className="sidebar-svg-icon" />,
   inventory: <img src="/assets/icons/inventory.svg" alt="Inventory" width={18} height={18} className="sidebar-svg-icon" />,
+  pokedex: <img src="/assets/icons/pokedex.svg" alt="Pokedex" width={18} height={18} className="sidebar-svg-icon" />,
 };
 
 export default function Sidebar({
   player,
   party,
   inventory,
+  pokedex,
   onSectionChange,
   activeSection,
 }) {
@@ -45,6 +48,7 @@ export default function Sidebar({
       label: 'Core',
       items: [
         { id: 'profile', label: 'Profile', icon: Icon.profile },
+        { id: 'pokedex', label: 'Pokedex', icon: Icon.pokedex },
         { id: 'pokemons', label: 'Pokémons', icon: Icon.pokemon, badge: party?.length || 0 },
         { id: 'trade', label: 'Trade', icon: Icon.trade },
       ],
@@ -129,6 +133,10 @@ export default function Sidebar({
           </div>
         );
       }
+      case 'pokedex':
+        return (
+          <PokedexPanel pokedex={pokedex} />
+        );
       default:
         return null;
     }
@@ -190,7 +198,7 @@ export default function Sidebar({
       </nav>
 
       {/* ── Slide-out panel ───────────────────────────────────── */}
-      <div className="section-content-area">
+      <div className={`section-content-area ${activeSection === 'pokedex' ? 'section-content-area--pokedex' : ''}`.trim()}>
         {renderContent()}
       </div>
     </>
