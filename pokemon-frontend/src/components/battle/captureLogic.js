@@ -3,10 +3,22 @@ export function attemptCapture(enemy, enemyHp) {
     return false;
   }
 
-  const hpFactor =
-    (enemy.maxHp - enemyHp) / enemy.maxHp;
+  const catchRate =
+    enemy.rareness ??
+    enemy.Rareness ??
+    255;
 
-  const captureChance = 0.2 + hpFactor * 0.6;
+  const ballMultiplier = 1.0;
+  const statusBonus = 1.0;
+
+  const chance =
+    ((3 * enemy.maxHp - 2 * enemyHp) /
+      (3 * enemy.maxHp)) *
+    (catchRate / 255) *
+    ballMultiplier *
+    statusBonus;
+
+  const captureChance = Math.min(0.95, chance);
 
   return Math.random() < captureChance;
 }

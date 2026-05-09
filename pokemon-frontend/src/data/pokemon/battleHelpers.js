@@ -152,6 +152,7 @@ export function generateWildPokemon(pokemonData, level = null) {
     id: pokemonId,
     number: pokemonNumber,
     name: pokemonData.Name,
+    rareness: pokemonData.Rareness ?? 255,
     level: baseLevel,
     hp: hp,
     maxHp: hp,

@@ -27,17 +27,20 @@ A browser-based Pokemon-style game built with React + Vite, featuring a tile-bas
 * Biome-based encounters (grass, snow, cave, water)
 * 493 Pokemon (Gen 1-4) with stats
 * Sprites: /assets/pokemons/001.png -> /493.png
+* Rareness-weighted wild selection
 
 ---
 
 ### Battle System
 
-* Turn-based combat (FIGHT / RUN)
+* Turn-based combat (FIGHT / BAG / RUN)
 * Type effectiveness (18 types)
 * Damage formula with STAB + randomness
 * HP bar colors (green/yellow/red)
 * Level scaling (2–12 wild Pokémon)
 * Valid move sets by level
+* Capture system with Poké Balls
+* HP + rareness-based catch rate formula
 
 ---
 
@@ -102,6 +105,9 @@ A browser-based Pokemon-style game built with React + Vite, featuring a tile-bas
 | Current map     | `allout_legends_current_map` |
 | Player position | `allout_legends_player_pos`  |
 | Tile scales     | `allout_legends_tile_scales` |
+| Inventory       | `allout_legends_inventory`   |
+| Party           | `allout_legends_party`       |
+| PC storage      | `allout_legends_pc_storage`  |
 
 ---
 
@@ -109,8 +115,8 @@ A browser-based Pokemon-style game built with React + Vite, featuring a tile-bas
 
 | Tech         | Purpose        |
 | ------------ | -------------- |
-| React 18     | UI             |
-| Vite         | Dev/build      |
+| React 19     | UI             |
+| Vite 8       | Dev/build      |
 | CSS Grid     | Tile rendering |
 | localStorage | Persistence    |
 | Pokémon INI  | Data source    |
@@ -143,9 +149,16 @@ pokemon-frontend/
 │   │   │       ├── storage.js
 │   │   │       ├── storageHandlers.js
 │   │   │       └── uiState.js
+│   │   │   └── playerStorage.js
 │   │   ├── Sidebar.jsx
 │   │   ├── MapEditor.jsx
-│   │   ├── Battle.jsx
+│   │   ├── battle/
+│   │   │   ├── Battle.jsx
+│   │   │   ├── battleConstants.js
+│   │   │   ├── battleLogic.js
+│   │   │   ├── battleUtils.js
+│   │   │   ├── captureLogic.js
+│   │   │   └── encounterTables.js
 │   │   └── TileViewer.jsx
 │   │   └── panels/
 │   │       ├── ProfilePanel.jsx
@@ -281,8 +294,8 @@ public/assets/heros/Alpha_Coder.png
 | Pokémon data   | ✅      |
 | Map editor     | ✅      |
 | Save/load      | ✅      |
-| Capture system | ⏳      |
-| Party system   | ⏳      |
+| Capture system | ✅      |
+| Party system   | ✅      |
 
 ---
 
@@ -290,10 +303,9 @@ public/assets/heros/Alpha_Coder.png
 
 ### Gameplay
 
-* Capture Pokémon
-* Party system (6 slots)
 * XP & leveling
 * Evolution
+* Poké Mart inventory
 
 ### World
 

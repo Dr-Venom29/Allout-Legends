@@ -44088,7 +44088,22 @@ export function getRandomPokemonByType(type) {
   });
 
   if (available.length === 0) return null;
-  return available[Math.floor(Math.random() * available.length)];
+
+  const totalWeight = available.reduce(
+    (sum, p) => sum + (p.Rareness ?? 1),
+    0
+  );
+
+  let roll = Math.random() * totalWeight;
+
+  for (const pokemon of available) {
+    roll -= pokemon.Rareness ?? 1;
+    if (roll < 0) {
+      return pokemon;
+    }
+  }
+
+  return available[0];
 }
 
 export default POKEMON_DATA;
