@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import ProfilePanel from './panels/ProfilePanel';
 import PokedexPanel from './panels/PokedexPanel';
+import PokemonPartyPanel from './panels/PokemonPartyPanel';
 import './Sidebar.css';
 import { getItemCount } from './game/inventory';
 
@@ -20,6 +21,8 @@ export default function Sidebar({
   party,
   inventory,
   pokedex,
+  activePartyIndex,
+  setActivePartyIndex,
   onSectionChange,
   activeSection,
 }) {
@@ -71,21 +74,11 @@ export default function Sidebar({
         );
       case 'pokemons':
         return (
-          <div className="section-panel">
-            <h3>Pokémons</h3>
-            <div className="party-list">
-              {party?.map((p, i) => (
-                <div key={i} className="party-member">
-                  <span className="party-icon">{Icon.pokemon}</span>
-                  <span className="party-name">{p.name}</span>
-                  <span className="party-level">LV{p.level}</span>
-                  <div className="party-hp">
-                    <div className="party-hp-fill" style={{ width: `${(p.hp / p.maxHp) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <PokemonPartyPanel
+            playerParty={party}
+            activePartyIndex={activePartyIndex}
+            setActivePartyIndex={setActivePartyIndex}
+          />
         );
       case 'trade':
         return (
@@ -198,7 +191,9 @@ export default function Sidebar({
       </nav>
 
       {/* ── Slide-out panel ───────────────────────────────────── */}
-      <div className={`section-content-area ${activeSection === 'pokedex' ? 'section-content-area--pokedex' : ''}`.trim()}>
+      <div
+        className={`section-content-area ${activeSection === 'pokedex' ? 'section-content-area--pokedex' : ''} ${activeSection === 'pokemons' ? 'section-content-area--party' : ''}`.trim()}
+      >
         {renderContent()}
       </div>
     </>

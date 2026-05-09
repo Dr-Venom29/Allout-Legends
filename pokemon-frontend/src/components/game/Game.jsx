@@ -34,6 +34,7 @@ import {
   markPokemonCaught,
   markPokemonSeen,
 } from "./pokedex";
+import { loadActivePartyIndex } from "./partyStorage";
 
 const TILE = 40;
 const VIEWPORT_W = 900;
@@ -111,6 +112,10 @@ export default function Game() {
     () => loadPlayerParty()
   );
 
+  const [activePartyIndex, setActivePartyIndex] = useState(
+    () => loadActivePartyIndex()
+  );
+
   const [pcStorage, setPcStorage] = useState(
     () => loadPcStorage()
   );
@@ -181,6 +186,24 @@ export default function Game() {
   useEffect(() => {
     savePlayerParty(playerParty);
   }, [playerParty]);
+
+  useEffect(() => {
+    saveJSON(
+      STORAGE_KEYS.ACTIVE_PARTY_INDEX,
+      activePartyIndex
+    );
+  }, [activePartyIndex]);
+
+  useEffect(() => {
+    if (playerParty.length === 0) {
+      setActivePartyIndex(0);
+      return;
+    }
+
+    if (activePartyIndex >= playerParty.length) {
+      setActivePartyIndex(0);
+    }
+  }, [playerParty, activePartyIndex]);
 
   useEffect(() => {
     savePcStorage(pcStorage);
@@ -322,6 +345,11 @@ export default function Game() {
     console.log(`Switched to: ${section}`);
   };
 
+  const activePokemon = useMemo(
+    () => playerParty[activePartyIndex] ?? playerParty[0] ?? null,
+    [playerParty, activePartyIndex]
+  );
+
   const handlePokemonSeen = useCallback((pokemonId) => {
     const numericId = Number(pokemonId);
 
@@ -357,6 +385,8 @@ export default function Game() {
         party={playerParty}
         inventory={playerInventory}
         pokedex={pokedex}
+        activePartyIndex={activePartyIndex}
+        setActivePartyIndex={setActivePartyIndex}
         onSectionChange={handleSectionChange}
         activeSection={activeSection}
       />
@@ -452,6 +482,7 @@ export default function Game() {
             setParty={setPlayerParty}
             pcStorage={pcStorage}
             setPcStorage={setPcStorage}
+            playerPokemon={activePokemon}
             onPokemonSeen={handlePokemonSeen}
             onPokemonCaught={handlePokemonCaught}
           />

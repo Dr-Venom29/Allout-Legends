@@ -84,9 +84,39 @@ export default function Battle({
   setParty,
   pcStorage,
   setPcStorage,
+  playerPokemon,
   onPokemonSeen,
   onPokemonCaught,
 }) {
+  const resolvedPlayerPokemon = useMemo(() => {
+    if (!playerPokemon) {
+      return PLAYER_POKEMON;
+    }
+
+    const fallbackMaxHp =
+      playerPokemon.maxHp ??
+      playerPokemon.hp ??
+      PLAYER_POKEMON.maxHp;
+
+    const fallbackHp =
+      playerPokemon.hp ??
+      fallbackMaxHp;
+
+    const moves =
+      Array.isArray(playerPokemon.moves) && playerPokemon.moves.length > 0
+        ? playerPokemon.moves
+        : PLAYER_POKEMON.moves;
+
+    return {
+      ...PLAYER_POKEMON,
+      ...playerPokemon,
+      moves,
+      maxHp: fallbackMaxHp,
+      hp: fallbackHp,
+      sprite: playerPokemon.sprite || PLAYER_POKEMON.sprite,
+    };
+  }, [playerPokemon]);
+
   const initialWildPokemon = useMemo(
     () => createWildBattle(mapId),
     [mapId]
@@ -97,7 +127,7 @@ export default function Battle({
   const [enemyHp, setEnemyHp] = useState(
     initialWildPokemon ? initialWildPokemon.hp : 0
   );
-  const [playerHp, setPlayerHp] = useState(PLAYER_POKEMON.hp);
+  const [playerHp, setPlayerHp] = useState(resolvedPlayerPokemon.hp);
   const [message, setMessage] = useState(
     initialWildPokemon
       ? `A wild ${initialWildPokemon.name} (Lv.${initialWildPokemon.level}) appeared!`
@@ -249,10 +279,10 @@ export default function Battle({
   const handleMove = (idx) => {
     if (!enemy) return;
     setSelectedMove(idx);
-    const move = PLAYER_POKEMON.moves[idx];
+    const move = resolvedPlayerPokemon.moves[idx];
     const result = performPlayerMove({
       move,
-      playerPokemon: PLAYER_POKEMON,
+      playerPokemon: resolvedPlayerPokemon,
       enemy,
       enemyHp,
     });
@@ -293,7 +323,7 @@ export default function Battle({
 
   const enemyHpPercent = getHpPercent(enemyHp, enemy.maxHp);
   const enemyHpClass = getHpClass(enemyHpPercent);
-  const playerHpPercent = getHpPercent(playerHp, PLAYER_POKEMON.maxHp);
+  const playerHpPercent = getHpPercent(playerHp, resolvedPlayerPokemon.maxHp);
   const playerHpClass = getHpClass(playerHpPercent);
 
   const bagItems = Object.entries(ITEMS).filter(
@@ -334,15 +364,15 @@ export default function Battle({
         <div className="player-battle-area">
           <div className="player-battle-sprite">
             <img
-              src={PLAYER_POKEMON.sprite}
-              alt={PLAYER_POKEMON.name}
+              src={resolvedPlayerPokemon.sprite}
+              alt={resolvedPlayerPokemon.name}
               className="sprite-player"
               onError={(e) => { e.target.src = DEFAULT_PLAYER_SPRITE; }}
             />
           </div>
           <div className="player-card-battle">
-            <div className="enemy-name">{PLAYER_POKEMON.name}</div>
-            <div className="enemy-level">Lv.{PLAYER_POKEMON.level}</div>
+            <div className="enemy-name">{resolvedPlayerPokemon.name}</div>
+            <div className="enemy-level">Lv.{resolvedPlayerPokemon.level}</div>
             <div className="battle-hp-bar">
               <div
                 className={`battle-hp-fill ${playerHpClass}`}
@@ -350,7 +380,7 @@ export default function Battle({
               />
             </div>
             <div className="battle-hp-text">
-              {playerHp}/{PLAYER_POKEMON.maxHp} HP
+              {playerHp}/{resolvedPlayerPokemon.maxHp} HP
             </div>
           </div>
         </div>
@@ -376,7 +406,7 @@ export default function Battle({
             ))}
 
           {phase === "fight" &&
-            PLAYER_POKEMON.moves.map((move, i) => (
+            resolvedPlayerPokemon.moves.map((move, i) => (
               <button
                 key={move.name}
                 className={`battle-btn${selectedMove === i ? " selected" : ""}`}

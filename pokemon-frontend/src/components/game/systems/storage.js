@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   PLAYER_PARTY: "allout_legends_party",
   PC_STORAGE: "allout_legends_pc_storage",
   POKEDEX: "allout_legends_pokedex",
+  ACTIVE_PARTY_INDEX: "allout_legends_active_party_index",
 };
 
 export function loadJSON(key, fallback) {
