@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import ProfilePanel from './panels/ProfilePanel';
 import './Sidebar.css';
+import { getItemCount } from './game/inventory';
 
 const Icon = {
   profile: <img src="/assets/icons/profile.svg" alt="Profile" width={18} height={18} className="sidebar-svg-icon" />,
@@ -112,14 +113,18 @@ export default function Sidebar({
           </div>
         );
       case 'inventory': {
-        const pokeballs = inventory?.pokeball ?? 0;
+        const pokeballs = getItemCount(inventory, 'pokeball');
+        const potions = getItemCount(inventory, 'potion');
+        const superPotions = getItemCount(inventory, 'superPotion');
+        const revives = getItemCount(inventory, 'revive');
         return (
           <div className="section-panel">
             <h3>Inventory</h3>
             <div className="inventory-list">
               <p>Poké Balls <span>{pokeballs}</span></p>
-              <p>Potions <span>0</span></p>
-              <p>Revives <span>0</span></p>
+              <p>Potions <span>{potions}</span></p>
+              <p>Super Potions <span>{superPotions}</span></p>
+              <p>Revives <span>{revives}</span></p>
             </div>
           </div>
         );

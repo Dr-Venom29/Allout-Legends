@@ -23,6 +23,12 @@ import {
   attemptCapture,
   storeCapturedPokemon,
 } from "./captureLogic";
+import {
+  hasItem,
+  consumeItem,
+  getItemCount,
+  ITEMS,
+} from "../game/inventory";
 
 const PLAYER_POKEMON = {
   name: "PIKACHU",
@@ -169,9 +175,7 @@ export default function Battle({
   const handleUsePokeball = () => {
     if (!enemy) return;
 
-    const currentCount = inventory?.pokeball ?? 0;
-
-    if (currentCount <= 0) {
+    if (!hasItem(inventory, "pokeball")) {
       setMessage("You have no Poké Balls left!");
       setTimeout(() => {
         setPhase("action");
@@ -180,13 +184,9 @@ export default function Battle({
       return;
     }
 
-    setInventory((prev) => ({
-      ...prev,
-      pokeball: Math.max(
-        0,
-        (prev?.pokeball ?? 0) - 1
-      ),
-    }));
+    setInventory((prev) =>
+      consumeItem(prev, "pokeball")
+    );
 
     const success = attemptCapture(
       enemy,
@@ -221,6 +221,21 @@ export default function Battle({
       setPhase("action");
       setSelectedAction(0);
     }, PLAYER_ATTACK_DELAY);
+  };
+
+  const handleUseItem = (itemId) => {
+    if (itemId === "pokeball") {
+      handleUsePokeball();
+      return;
+    }
+
+    const itemName = ITEMS[itemId]?.name ?? "Item";
+    setMessage(`${itemName} is not implemented yet.`);
+
+    setTimeout(() => {
+      setPhase("action");
+      setSelectedAction(0);
+    }, 800);
   };
 
   const handleMove = (idx) => {
@@ -442,14 +457,61 @@ export default function Battle({
               </button>
             ))}
 
-          {phase === "bag" && (
-            <button
-              className="battle-btn selected"
-              onClick={handleUsePokeball}
-            >
-              Poké Ball × {inventory?.pokeball ?? 0}
-            </button>
-          )}
+          {phase === "bag" && (() => {
+            const bagItems = Object.entries(ITEMS)
+              .filter(
+                ([itemId, item]) =>
+                  item.usableInBattle &&
+                  getItemCount(inventory, itemId) > 0
+              );
+
+            if (bagItems.length === 0) {
+              return (
+                <>
+                  <button
+                    className="battle-btn"
+                    disabled
+                  >
+                    No usable items.
+                  </button>
+                  <button
+                    className="battle-btn"
+                    onClick={() => {
+                      setPhase("action");
+                      setSelectedAction(0);
+                    }}
+                  >
+                    Back
+                  </button>
+                </>
+              );
+            }
+
+            return (
+              <>
+                {bagItems.map(([itemId, item]) => (
+                  <button
+                    key={itemId}
+                    className="battle-btn"
+                    onClick={() =>
+                      handleUseItem(itemId)
+                    }
+                  >
+                    {item.name} × {getItemCount(inventory, itemId)}
+                  </button>
+                ))}
+                <button
+                  className="battle-btn"
+                  onClick={() => {
+                    setPhase("action");
+                    setSelectedAction(0);
+                  }}
+                >
+                  Back
+                </button>
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>
