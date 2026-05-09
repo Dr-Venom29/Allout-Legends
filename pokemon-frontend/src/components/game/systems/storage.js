@@ -3,6 +3,9 @@ export const STORAGE_KEYS = {
   CURRENT_MAP: "allout_legends_current_map",
   PLAYER_POS: "allout_legends_player_pos",
   TILE_SCALES: "allout_legends_tile_scales",
+  PLAYER_INVENTORY: "allout_legends_inventory",
+  PLAYER_PARTY: "allout_legends_party",
+  PC_STORAGE: "allout_legends_pc_storage",
 };
 
 export function loadJSON(key, fallback) {

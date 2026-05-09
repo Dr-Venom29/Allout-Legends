@@ -1,4 +1,4 @@
-export const ACTIONS = ["FIGHT", "RUN"];
+export const ACTIONS = ["FIGHT", "BAG", "RUN"];
 
 export const RUN_SUCCESS_CHANCE = 0.5;
 

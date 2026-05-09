@@ -17,6 +17,14 @@ import {
   useStorageHandlers,
 } from "./systems/storageHandlers";
 import {
+  loadPlayerInventory,
+  loadPlayerParty,
+  loadPcStorage,
+  savePlayerInventory,
+  savePlayerParty,
+  savePcStorage,
+} from "./playerStorage";
+import {
   MAP_NAMES,
   buildCurrentPaintLines,
   getTerrainName,
@@ -91,15 +99,16 @@ export default function Game() {
   const [hoveredTile, setHoveredTile] =
     useState(null);
 
-  const [party] = useState([
-    {
-      id: "PIKACHU",
-      name: "Pikachu",
-      level: 10,
-      hp: 50,
-      maxHp: 50,
-    },
-  ]);
+  const [playerInventory, setPlayerInventory] =
+    useState(() => loadPlayerInventory());
+
+  const [playerParty, setPlayerParty] = useState(
+    () => loadPlayerParty()
+  );
+
+  const [pcStorage, setPcStorage] = useState(
+    () => loadPcStorage()
+  );
 
   const [paintLog, setPaintLog] = useState(() => {
     const savedLog = loadSavedPaintLog();
@@ -155,6 +164,18 @@ export default function Game() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CURRENT_MAP, currentMap);
   }, [currentMap]);
+
+  useEffect(() => {
+    savePlayerInventory(playerInventory);
+  }, [playerInventory]);
+
+  useEffect(() => {
+    savePlayerParty(playerParty);
+  }, [playerParty]);
+
+  useEffect(() => {
+    savePcStorage(pcStorage);
+  }, [pcStorage]);
 
   const setPositionScale = useCallback(
     (mapName, x, y, scale) => {
@@ -296,7 +317,8 @@ export default function Game() {
           y: player.y,
           mapId: currentMap,
         }}
-        party={party}
+        party={playerParty}
+        inventory={playerInventory}
         onSectionChange={handleSectionChange}
         activeSection={activeSection}
       />
@@ -386,6 +408,12 @@ export default function Game() {
               setGameState("map")
             }
             mapId={currentMap}
+            inventory={playerInventory}
+            setInventory={setPlayerInventory}
+            party={playerParty}
+            setParty={setPlayerParty}
+            pcStorage={pcStorage}
+            setPcStorage={setPcStorage}
           />
         )}
       </div>

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import './Panel.css';
 import SkinPanel from './SkinPanel';
 
-export default function ProfilePanel({ player }) {
+export default function ProfilePanel({ player, party }) {
   const [showSkinModal, setShowSkinModal] = useState(false);
   const [hideBackButton, setHideBackButton] = useState(false);
   const [selectedAvatar] = useState(() => {
@@ -82,7 +82,7 @@ export default function ProfilePanel({ player }) {
           <span className="quick-stat-label">Wins</span>
         </div>
         <div className="quick-stat">
-          <span className="quick-stat-value">{player?.party?.length ?? 0}</span>
+          <span className="quick-stat-value">{party?.length ?? 0}</span>
           <span className="quick-stat-label">Party</span>
         </div>
         <div className="quick-stat">

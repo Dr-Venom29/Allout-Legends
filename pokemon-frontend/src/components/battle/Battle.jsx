@@ -19,6 +19,10 @@ import {
   performEnemyAttack,
   performPlayerMove,
 } from "./battleLogic";
+import {
+  attemptCapture,
+  storeCapturedPokemon,
+} from "./captureLogic";
 
 const PLAYER_POKEMON = {
   name: "PIKACHU",
@@ -70,6 +74,12 @@ const DEFAULT_PLAYER_SPRITE =
 export default function Battle({
   exitBattle,
   mapId = "map1",
+  inventory,
+  setInventory,
+  party,
+  setParty,
+  pcStorage,
+  setPcStorage,
 }) {
   const initialWildPokemon = useMemo(
     () => createWildBattle(mapId),
@@ -135,6 +145,12 @@ export default function Battle({
       return;
     }
 
+    if (action === "BAG") {
+      setPhase("bag");
+      setMessage("Choose an item!");
+      return;
+    }
+
     if (action === "RUN") {
       if (tryRun()) {
         setMessage("Got away safely!");
@@ -148,6 +164,63 @@ export default function Battle({
         enemyAttack();
       }
     }
+  };
+
+  const handleUsePokeball = () => {
+    if (!enemy) return;
+
+    const currentCount = inventory?.pokeball ?? 0;
+
+    if (currentCount <= 0) {
+      setMessage("You have no Poké Balls left!");
+      setTimeout(() => {
+        setPhase("action");
+        setSelectedAction(0);
+      }, 800);
+      return;
+    }
+
+    setInventory((prev) => ({
+      ...prev,
+      pokeball: Math.max(
+        0,
+        (prev?.pokeball ?? 0) - 1
+      ),
+    }));
+
+    const success = attemptCapture(
+      enemy,
+      enemyHp
+    );
+
+    if (success) {
+      const stored = storeCapturedPokemon(
+        enemy,
+        party,
+        pcStorage
+      );
+
+      setParty(stored.party);
+      setPcStorage(stored.pcStorage);
+
+      setMessage(
+        `Gotcha! ${enemy.name} was caught!`
+      );
+
+      setTimeout(() => {
+        exitBattle();
+      }, BATTLE_END_DELAY);
+
+      return;
+    }
+
+    setMessage("Oh no! The Pokémon broke free!");
+
+    setTimeout(() => {
+      enemyAttack();
+      setPhase("action");
+      setSelectedAction(0);
+    }, PLAYER_ATTACK_DELAY);
   };
 
   const handleMove = (idx) => {
@@ -339,39 +412,44 @@ export default function Battle({
         </div>
 
         <div className="battle-actions">
-          {phase === "action"
-            ? ACTIONS.map((action, i) => (
-                <button
-                  key={action}
-                  className={`battle-btn ${
-                    selectedAction === i
-                      ? "selected"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    handleAction(i)
-                  }
-                >
-                  {action}
-                </button>
-              ))
-            : PLAYER_POKEMON.moves.map(
-                (move, i) => (
-                  <button
-                    key={move.name}
-                    className={`battle-btn ${
-                      selectedMove === i
-                        ? "selected"
-                        : ""
-                    }`}
-                    onClick={() =>
-                      handleMove(i)
-                    }
-                  >
-                    {move.name}
-                  </button>
-                )
-              )}
+          {phase === "action" &&
+            ACTIONS.map((action, i) => (
+              <button
+                key={action}
+                className={`battle-btn ${
+                  selectedAction === i
+                    ? "selected"
+                    : ""
+                }`}
+                onClick={() => handleAction(i)}
+              >
+                {action}
+              </button>
+            ))}
+
+          {phase === "fight" &&
+            PLAYER_POKEMON.moves.map((move, i) => (
+              <button
+                key={move.name}
+                className={`battle-btn ${
+                  selectedMove === i
+                    ? "selected"
+                    : ""
+                }`}
+                onClick={() => handleMove(i)}
+              >
+                {move.name}
+              </button>
+            ))}
+
+          {phase === "bag" && (
+            <button
+              className="battle-btn selected"
+              onClick={handleUsePokeball}
+            >
+              Poké Ball × {inventory?.pokeball ?? 0}
+            </button>
+          )}
         </div>
       </div>
     </div>

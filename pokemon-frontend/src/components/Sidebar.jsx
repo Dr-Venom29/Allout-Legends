@@ -12,7 +12,13 @@ const Icon = {
   inventory: <img src="/assets/icons/inventory.svg" alt="Inventory" width={18} height={18} className="sidebar-svg-icon" />,
 };
 
-export default function Sidebar({ player, party, onSectionChange, activeSection }) {
+export default function Sidebar({
+  player,
+  party,
+  inventory,
+  onSectionChange,
+  activeSection,
+}) {
   const [currentAvatar, setCurrentAvatar] = useState(() =>
     localStorage.getItem('selected_avatar') || '/assets/heros/Alpha_Coder.png'
   );
@@ -55,7 +61,9 @@ export default function Sidebar({ player, party, onSectionChange, activeSection 
   const renderContent = () => {
     switch (activeSection) {
       case 'profile':
-        return <ProfilePanel player={player} />;
+        return (
+          <ProfilePanel player={player} party={party} />
+        );
       case 'pokemons':
         return (
           <div className="section-panel">
@@ -103,17 +111,19 @@ export default function Sidebar({ player, party, onSectionChange, activeSection 
             </div>
           </div>
         );
-      case 'inventory':
+      case 'inventory': {
+        const pokeballs = inventory?.pokeball ?? 0;
         return (
           <div className="section-panel">
             <h3>Inventory</h3>
             <div className="inventory-list">
-              <p>Poké Balls <span>5</span></p>
-              <p>Potions <span>3</span></p>
-              <p>Revives <span>1</span></p>
+              <p>Poké Balls <span>{pokeballs}</span></p>
+              <p>Potions <span>0</span></p>
+              <p>Revives <span>0</span></p>
             </div>
           </div>
         );
+      }
       default:
         return null;
     }
