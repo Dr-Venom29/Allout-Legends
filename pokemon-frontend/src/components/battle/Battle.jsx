@@ -20,6 +20,7 @@ import {
   performEnemyAttack,
   performPlayerMove,
 } from "./battleLogic";
+import { calculateExpReward, addExperience } from "../game/experience";
 import {
   attemptCapture,
   storeCapturedPokemon,
@@ -309,7 +310,52 @@ export default function Battle({
 
     if (result.enemyDefeated) {
       setMessage(`${enemy.name} fainted! You won!`);
-      setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+
+      // Award EXP to active Pokémon and update party
+      const expReward = calculateExpReward(enemy);
+
+      // Find active index in party (try reference first, then by identity)
+      const findActiveIndex = () => {
+        if (!party || party.length === 0) return -1;
+        let idx = party.indexOf(playerPokemon);
+        if (idx !== -1) return idx;
+        idx = party.findIndex((p) => {
+          if (!p || !playerPokemon) return false;
+          if (p.number && playerPokemon.number && p.number === playerPokemon.number) return true;
+          if (p.id && playerPokemon.id && p.id === playerPokemon.id) return true;
+          if (p.name && playerPokemon.name && p.name === playerPokemon.name) return true;
+          return false;
+        });
+        return idx;
+      };
+
+      const activeIdx = findActiveIndex();
+      const targetPokemon = (activeIdx !== -1 && party[activeIdx]) ? party[activeIdx] : playerPokemon;
+
+      const resultExp = addExperience(targetPokemon, expReward);
+
+      if (activeIdx !== -1) {
+        setParty((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          next[activeIdx] = resultExp.pokemon;
+          return next;
+        });
+      }
+
+      // Show EXP message then level-up message (if any), then exit
+      setTimeout(() => {
+        setMessage(`${resultExp.pokemon.name} gained ${resultExp.expGained} EXP!`);
+
+        if (resultExp.leveledUp) {
+          setTimeout(() => {
+            setMessage(`${resultExp.pokemon.name} grew to Level ${resultExp.newLevel}!`);
+            setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+          }, 900);
+        } else {
+          setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+        }
+      }, 800);
+
       return;
     }
 

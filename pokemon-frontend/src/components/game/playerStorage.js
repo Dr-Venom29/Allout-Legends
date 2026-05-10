@@ -1,4 +1,5 @@
 import { loadJSON, saveJSON, STORAGE_KEYS } from "./systems/storage";
+import { normalizePokemon } from "./experience";
 
 const DEFAULT_INVENTORY = {
   pokeball: 10,
@@ -34,7 +35,8 @@ export function savePlayerInventory(inventory) {
 }
 
 export function loadPlayerParty() {
-  return loadJSON(STORAGE_KEYS.PLAYER_PARTY, []);
+  const party = loadJSON(STORAGE_KEYS.PLAYER_PARTY, []);
+  return Array.isArray(party) ? party.map(normalizePokemon) : [];
 }
 
 export function savePlayerParty(party) {
@@ -42,7 +44,8 @@ export function savePlayerParty(party) {
 }
 
 export function loadPcStorage() {
-  return loadJSON(STORAGE_KEYS.PC_STORAGE, []);
+  const storage = loadJSON(STORAGE_KEYS.PC_STORAGE, []);
+  return Array.isArray(storage) ? storage.map(normalizePokemon) : [];
 }
 
 export function savePcStorage(pcStorage) {

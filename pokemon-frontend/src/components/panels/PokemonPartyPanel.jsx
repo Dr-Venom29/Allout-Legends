@@ -86,9 +86,9 @@ export default function PokemonPartyPanel({
     ? Math.min(100, Math.max(0, (selectedPokemon.hp / Math.max(1, selectedPokemon.maxHp)) * 100))
     : 0;
 
-  const expPercent = selectedPokemon
-    ? Math.min(100, Math.max(0, (selectedPokemon.xp ?? 0) / Math.max(1, selectedPokemon.xpToNext ?? 100) * 100))
-    : 0;
+  const expValue = selectedPokemon?.exp ?? 0;
+  const expNext = selectedPokemon?.nextLevelExp ?? 100;
+  const expPercent = expNext > 0 ? Math.min(100, Math.max(0, (expValue / expNext) * 100)) : 100;
 
   const stats = selectedPokemon
     ? [
@@ -197,7 +197,7 @@ export default function PokemonPartyPanel({
               <div className="party-meter">
                 <div className="party-meter-fill party-meter-fill--exp" style={{ width: `${expPercent}%` }} />
               </div>
-              <span>{Math.round(expPercent)}%</span>
+              <span>{expValue} / {expNext}</span>
             </div>
           </div>
 

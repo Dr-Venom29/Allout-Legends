@@ -165,8 +165,9 @@ export function generateWildPokemon(pokemonData, level = null) {
     type2: pokemonData.Type2 || null,
     moves: availableMoves,
     sprite: getPokemonSprite(pokemonNumber),
-    xp: 0,
-    xpToNext: Math.floor((pokemonData.GrowthRate === 'Medium' ? 100 : 80) * baseLevel / 2)
+    // Experience fields (normalized to new format)
+    exp: 0,
+    nextLevelExp: Math.pow(baseLevel, 3),
   };
 }
 

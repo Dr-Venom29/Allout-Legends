@@ -67,9 +67,9 @@ export default function PokemonPCPanel({ pcStorage = [], onClose }) {
     ? Math.min(100, Math.max(0, (selectedPokemon.hp / Math.max(1, selectedPokemon.maxHp)) * 100))
     : 0;
 
-  const expPercent = selectedPokemon
-    ? Math.min(100, Math.max(0, (selectedPokemon.xp ?? 0) / Math.max(1, selectedPokemon.xpToNext ?? 100) * 100))
-    : 0;
+  const expValue = selectedPokemon?.exp ?? 0;
+  const expNext = selectedPokemon?.nextLevelExp ?? 100;
+  const expPercent = expNext > 0 ? Math.min(100, Math.max(0, (expValue / expNext) * 100)) : 100;
 
   const statSource = selectedPokemon?.stats || {};
   const stats = selectedPokemon
@@ -188,7 +188,7 @@ export default function PokemonPCPanel({ pcStorage = [], onClose }) {
                   <div className="pc-meter">
                     <div className="pc-meter-fill pc-meter-fill--exp" style={{ width: `${expPercent}%` }} />
                   </div>
-                  <span>{Math.round(expPercent)}%</span>
+                  <span>{expValue} / {expNext}</span>
                 </div>
               </div>
 
