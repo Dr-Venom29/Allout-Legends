@@ -62,6 +62,7 @@ export default function PokemonPartyPanel({
   onCancel = null,
   onInvalidSelection = null,
   currentBattlePokemonIndex = 0,
+  forceSelection = false,
 }) {
   const selectedPokemon = useMemo(() =>
     playerParty[activePartyIndex] ?? playerParty[0] ?? null,
@@ -112,7 +113,13 @@ export default function PokemonPartyPanel({
         <span className="party-indicator" aria-hidden="true" />
         <div>
           <h2>{isBattleMode ? "SWITCH POKEMON" : "POKEMON PARTY"}</h2>
-          <p>{isBattleMode ? "Choose a Pokemon to switch in" : "Select your battle leader"}</p>
+          <p>
+            {forceSelection
+              ? "Choose a Pokémon to continue the battle"
+              : isBattleMode
+                ? "Choose a Pokemon to switch in"
+                : "Select your battle leader"}
+          </p>
         </div>
       </header>
 
@@ -247,13 +254,15 @@ export default function PokemonPartyPanel({
         <span>{partyCount} / 6 Pokemon</span>
         <span>Leader: {selectedPokemon?.name ?? "None"}</span>
         {isBattleMode ? (
-          <button
-            className="party-open-pc-button"
-            onClick={() => onCancel?.()}
-            type="button"
-          >
-            CANCEL
-          </button>
+          !forceSelection && (
+            <button
+              className="party-open-pc-button"
+              onClick={() => onCancel?.()}
+              type="button"
+            >
+              CANCEL
+            </button>
+          )
         ) : (
           <button
             className="party-open-pc-button"

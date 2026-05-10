@@ -32,6 +32,7 @@ import {
   ITEMS,
 } from "../game/inventory";
 import PokemonPartyPanel from "../panels/PokemonPartyPanel";
+import { hasUsablePokemon } from "../game/partyUtils";
 
 const PLAYER_POKEMON = {
   name: "PIKACHU",
@@ -147,6 +148,7 @@ export default function Battle({
   const [selectedAction, setSelectedAction] = useState(0);
   const [selectedMove, setSelectedMove] = useState(0);
   const [phase, setPhase] = useState("action");
+  const [isForcedSwitch, setIsForcedSwitch] = useState(false);
 
   useEffect(() => {
     const numericId = Number(enemy?.number);
@@ -162,8 +164,20 @@ export default function Battle({
     setPlayerHp(result.newHp);
     setMessage(result.message);
     if (result.playerDefeated) {
-      setMessage(`${enemy.name} defeated your Pokémon! You blacked out!`);
-      setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+      // Current Pokémon fainted - check for other usable Pokémon
+      if (hasUsablePokemon(party, battlePartyIndex)) {
+        // Other Pokémon are available - force switch
+        const currentPokemonName = resolvedPlayerPokemon.name;
+        setMessage(`${currentPokemonName} fainted!`);
+        setTimeout(() => {
+          setIsForcedSwitch(true);
+          setPhase("party-select");
+        }, 1000);
+      } else {
+        // No other Pokémon available - player loses
+        setMessage("You have no Pokémon left!");
+        setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+      }
     }
   };
 
@@ -285,12 +299,22 @@ export default function Battle({
     setPhase("message");
     setMessage(`Go! ${selectedPokemon.name}!`);
 
-    // After the switch message, the enemy attacks
-    setTimeout(() => {
-      setPhase("action");
-      setSelectedAction(0);
-      enemyAttack();
-    }, 1500);
+    // Check if this is a forced switch (due to faint)
+    if (isForcedSwitch) {
+      // Forced switch: return to action menu without enemy attack
+      setIsForcedSwitch(false);
+      setTimeout(() => {
+        setPhase("action");
+        setSelectedAction(0);
+      }, 1500);
+    } else {
+      // Manual switch: the enemy attacks (consumes player's turn)
+      setTimeout(() => {
+        setPhase("action");
+        setSelectedAction(0);
+        enemyAttack();
+      }, 1500);
+    }
   };
 
   const handleHealingItem = () => {
@@ -533,12 +557,17 @@ export default function Battle({
           activePartyIndex={battlePartyIndex}
           isBattleMode={true}
           currentBattlePokemonIndex={battlePartyIndex}
+          forceSelection={isForcedSwitch}
           onSelectPokemon={handleSwitchPokemon}
           onInvalidSelection={(text) => setMessage(text)}
-          onCancel={() => {
-            setPhase("action");
-            setSelectedAction(0);
-          }}
+          onCancel={
+            isForcedSwitch
+              ? null
+              : () => {
+                  setPhase("action");
+                  setSelectedAction(0);
+                }
+          }
         />
       ) : (
         <div className="battle-ui">
