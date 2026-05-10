@@ -26,7 +26,7 @@ import {
 } from "./playerStorage";
 import { loadPlayerMoney, savePlayerMoney } from "./playerStorage";
 import PokeMartPanel from "../panels/PokeMartPanel";
-import MoveLearningPanel from "./panels/MoveLearningPanel";
+import MoveLearningPanel from "../panels/MoveLearningPanel";
 import {
   MAP_NAMES,
   buildCurrentPaintLines,
@@ -204,12 +204,15 @@ export default function Game() {
 
   useEffect(() => {
     if (playerParty.length === 0) {
-      setActivePartyIndex(0);
-      return;
+      // Defer state update to avoid synchronous setState within effect
+      const t = setTimeout(() => setActivePartyIndex(0), 0);
+      return () => clearTimeout(t);
     }
 
     if (activePartyIndex >= playerParty.length) {
-      setActivePartyIndex(0);
+      // Defer state update to avoid cascading renders during effect
+      const t = setTimeout(() => setActivePartyIndex(0), 0);
+      return () => clearTimeout(t);
     }
   }, [playerParty, activePartyIndex]);
 

@@ -1,5 +1,6 @@
 import { POKEMON_DATA } from "../../data/pokemon/pokemonData.js";
 import { calculateHP, calculateStat, getPokemonSprite } from "../../data/pokemon/battleHelpers.js";
+import { buildMove } from "../../data/pokemon/moveData.js";
 
 export function canEvolve(pokemon) {
   if (!pokemon) return false;
@@ -53,7 +54,7 @@ export function evolvePokemon(pokemonIn) {
 
   // Calculate current HP ratio to preserve player's battle state
   const maxHpBefore = pokemonIn.maxHp ?? 10;
-  const currentHpBefore = pokemonIn.hp ?? maxHpBefore;
+  const currentHpBefore = pokemonIn.currentHp ?? pokemonIn.hp ?? maxHpBefore;
   const hpRatio = maxHpBefore > 0 ? currentHpBefore / maxHpBefore : 1;
 
   // Generate evolved Pokémon at current level
@@ -71,12 +72,7 @@ export function evolvePokemon(pokemonIn) {
   const availableMoves = (evolvedEntry.Moves || [])
     .filter((m) => m.level <= pokemonIn.level)
     .slice(-4)
-    .map((m) => ({
-      name: m.name,
-      power: getMovePower(m.name),
-      type: getMoveType(m.name, evolvedEntry.Type1),
-      category: getMoveCategory(m.name),
-    }));
+    .map((m) => buildMove(m.name, evolvedEntry.Type1));
 
   if (availableMoves.length === 0) {
     availableMoves.push({
@@ -90,8 +86,9 @@ export function evolvePokemon(pokemonIn) {
   // Build the evolved Pokémon object, preserving progression data
   return {
     ...pokemonIn,
-    id: evolvedEntry.InternalName,
-    number: evolvedNumber,
+    id: Number(evolvedNumber),
+    number: Number(evolvedNumber),
+    internalName: evolvedEntry.InternalName,
     name: evolvedEntry.Name,
     rareness: evolvedEntry.Rareness ?? 255,
     level: pokemonIn.level,
@@ -105,84 +102,11 @@ export function evolvePokemon(pokemonIn) {
     type1: evolvedEntry.Type1,
     type2: evolvedEntry.Type2 || null,
     moves: availableMoves,
-    sprite: getPokemonSprite(evolvedNumber),
+    sprite: getPokemonSprite(Number(evolvedNumber)),
     // Preserve progression
     exp: pokemonIn.exp,
     nextLevelExp: pokemonIn.nextLevelExp,
   };
 }
 
-// Helper: Get move power based on move name
-function getMovePower(moveName) {
-  const movePowers = {
-    Tackle: 40,
-    Growl: 0,
-    "Tail Whip": 0,
-    Ember: 40,
-    "Water Gun": 40,
-    ThunderShock: 40,
-    "Vine Whip": 45,
-    Scratch: 40,
-    Bite: 60,
-    "Quick Attack": 40,
-    Flamethrower: 90,
-    Thunderbolt: 90,
-    "Ice Beam": 90,
-    Psychic: 90,
-    Earthquake: 100,
-    Surf: 90,
-  };
-  return movePowers[moveName] || 40;
-}
-
-// Helper: Get move type
-function getMoveType(moveName, pokemonType) {
-  const moveTypes = {
-    Tackle: "Normal",
-    Growl: "Normal",
-    "Tail Whip": "Normal",
-    Ember: "Fire",
-    Flamethrower: "Fire",
-    "Fire Blast": "Fire",
-    "Water Gun": "Water",
-    Surf: "Water",
-    "Hydro Pump": "Water",
-    ThunderShock: "Electric",
-    Thunderbolt: "Electric",
-    Thunder: "Electric",
-    "Vine Whip": "Grass",
-    "Razor Leaf": "Grass",
-    "Solar Beam": "Grass",
-    Scratch: "Normal",
-    Bite: "Dark",
-    "Quick Attack": "Normal",
-    Psychic: "Psychic",
-    Earthquake: "Ground",
-  };
-  return moveTypes[moveName] || pokemonType || "Normal";
-}
-
-// Helper: Get move category
-function getMoveCategory(moveName) {
-  const specialMoves = [
-    "Ember",
-    "Flamethrower",
-    "Fire Blast",
-    "Water Gun",
-    "Surf",
-    "Hydro Pump",
-    "ThunderShock",
-    "Thunderbolt",
-    "Thunder",
-    "Vine Whip",
-    "Razor Leaf",
-    "Solar Beam",
-    "Psychic",
-    "Ice Beam",
-  ];
-  const statusMoves = ["Growl", "Tail Whip", "Leer", "Sing", "Hypnosis"];
-
-  if (statusMoves.includes(moveName)) return "status";
-  if (specialMoves.includes(moveName)) return "special";
-  return "physical";
-}
+// move helpers replaced by centralized moveData.buildMove

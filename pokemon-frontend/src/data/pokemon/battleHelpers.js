@@ -1,5 +1,6 @@
 // Battle calculation helpers
 import { POKEMON_DATA } from './pokemonData.js';
+import { buildMove } from './moveData.js';
 
 const POKEMON_ENTRIES = Object.entries(POKEMON_DATA);
 
@@ -131,21 +132,11 @@ export function generateWildPokemon(pokemonData, level = null) {
   const availableMoves = (pokemonData.Moves || [])
     .filter(m => m.level <= baseLevel)
     .slice(-4)
-    .map(m => ({
-      name: m.name,
-      power: getMovePower(m.name),
-      type: getMoveType(m.name, pokemonData.Type1),
-      category: getMoveCategory(m.name)
-    }));
+    .map(m => buildMove(m.name, pokemonData.Type1));
   
   // If no moves found, add a default move
   if (availableMoves.length === 0) {
-    availableMoves.push({
-      name: "Tackle",
-      power: 40,
-      type: "Normal",
-      category: "physical"
-    });
+    availableMoves.push(buildMove("Tackle", "Normal"));
   }
   
   return {
@@ -171,64 +162,4 @@ export function generateWildPokemon(pokemonData, level = null) {
   };
 }
 
-// Helper: Get move power based on move name
-function getMovePower(moveName) {
-  const movePowers = {
-    'Tackle': 40,
-    'Growl': 0,
-    'Tail Whip': 0,
-    'Ember': 40,
-    'Water Gun': 40,
-    'ThunderShock': 40,
-    'Vine Whip': 45,
-    'Scratch': 40,
-    'Bite': 60,
-    'Quick Attack': 40,
-    'Flamethrower': 90,
-    'Thunderbolt': 90,
-    'Ice Beam': 90,
-    'Psychic': 90,
-    'Earthquake': 100,
-    'Surf': 90,
-  };
-  return movePowers[moveName] || 40;
-}
-
-// Helper: Get move type
-function getMoveType(moveName, pokemonType) {
-  const moveTypes = {
-    'Tackle': 'Normal',
-    'Growl': 'Normal',
-    'Tail Whip': 'Normal',
-    'Ember': 'Fire',
-    'Flamethrower': 'Fire',
-    'Fire Blast': 'Fire',
-    'Water Gun': 'Water',
-    'Surf': 'Water',
-    'Hydro Pump': 'Water',
-    'ThunderShock': 'Electric',
-    'Thunderbolt': 'Electric',
-    'Thunder': 'Electric',
-    'Vine Whip': 'Grass',
-    'Razor Leaf': 'Grass',
-    'Solar Beam': 'Grass',
-    'Scratch': 'Normal',
-    'Bite': 'Dark',
-    'Quick Attack': 'Normal',
-    'Psychic': 'Psychic',
-    'Earthquake': 'Ground',
-  };
-  return moveTypes[moveName] || pokemonType || 'Normal';
-}
-
-// Helper: Get move category
-function getMoveCategory(moveName) {
-  const specialMoves = ['Ember', 'Flamethrower', 'Fire Blast', 'Water Gun', 'Surf', 'Hydro Pump', 
-                         'ThunderShock', 'Thunderbolt', 'Thunder', 'Vine Whip', 'Razor Leaf', 
-                         'Solar Beam', 'Psychic', 'Ice Beam'];
-  const statusMoves = ['Growl', 'Tail Whip', 'Leer', 'Sing', 'Hypnosis'];
-  
-  if (statusMoves.includes(moveName)) return 'status';
-  if (specialMoves.includes(moveName)) return 'special';
-  return 'physical';
-}
+// Move metadata and builders are provided by ./moveData.js via buildMove
