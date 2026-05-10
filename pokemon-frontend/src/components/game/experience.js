@@ -1,5 +1,6 @@
 import { POKEMON_DATA } from "../../data/pokemon/pokemonData.js";
 import { calculateHP, calculateStat } from "../../data/pokemon/battleHelpers.js";
+import { canEvolve, evolvePokemon } from "./evolution.js";
 
 const MAX_LEVEL = 100;
 
@@ -143,11 +144,25 @@ export function addExperience(pokemonIn, amount) {
     pokemon.nextLevelExp = getExpForLevel(pokemon.level);
   }
 
+  // Check for evolution after level-ups
+  const previousName = pokemon.name;
+  let evolved = false;
+  let evolvedName = null;
+
+  if (canEvolve(pokemon)) {
+    pokemon = evolvePokemon(pokemon);
+    evolved = true;
+    evolvedName = pokemon.name;
+  }
+
   return {
     pokemon,
     expGained: amount,
     leveledUp,
     levelsGained,
     newLevel: pokemon.level,
+    evolved,
+    previousName: evolved ? previousName : null,
+    evolvedName: evolved ? evolvedName : null,
   };
 }

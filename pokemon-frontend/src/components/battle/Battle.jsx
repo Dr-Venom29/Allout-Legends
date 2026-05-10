@@ -342,16 +342,27 @@ export default function Battle({
         });
       }
 
-      // Show EXP message then level-up message (if any), then exit
+      // Show messages in sequence: EXP → Evolution (if any) → Level-up (if no evolution) → Exit
       setTimeout(() => {
         setMessage(`${resultExp.pokemon.name} gained ${resultExp.expGained} EXP!`);
 
-        if (resultExp.leveledUp) {
+        if (resultExp.evolved) {
+          // Evolution sequence
+          setTimeout(() => {
+            setMessage(`What? ${resultExp.previousName} is evolving!`);
+            setTimeout(() => {
+              setMessage(`Congratulations! Your ${resultExp.previousName} evolved into ${resultExp.evolvedName}!`);
+              setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+            }, 1200);
+          }, 1000);
+        } else if (resultExp.leveledUp) {
+          // Level-up message (only if not evolving)
           setTimeout(() => {
             setMessage(`${resultExp.pokemon.name} grew to Level ${resultExp.newLevel}!`);
             setTimeout(() => exitBattle(), BATTLE_END_DELAY);
           }, 900);
         } else {
+          // Just exit
           setTimeout(() => exitBattle(), BATTLE_END_DELAY);
         }
       }, 800);
