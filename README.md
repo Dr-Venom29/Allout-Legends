@@ -329,7 +329,7 @@ public/assets/heros/Alpha_Coder.png
 
 ## Author
 
-Custom Pokémon engine inspired by Deluge RPG.
+Custom Pokémon-style engine developed by the AllOut Legends team.
 
 ---
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import {useMemo, useState } from "react";
 import "./PokemonPCPanel.css";
 
 const DEFAULT_SPRITE = "/assets/pokemons/000.png";
@@ -53,15 +53,13 @@ const MoveCard = ({ move }) => {
 export default function PokemonPCPanel({ pcStorage = [], onClose }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  useEffect(() => {
-    if (selectedIndex >= pcStorage.length && pcStorage.length > 0) {
-      setSelectedIndex(0);
-    }
+  const clampedIndex = useMemo(() => {
+    return pcStorage.length === 0 ? 0 : Math.min(selectedIndex, pcStorage.length - 1);
   }, [selectedIndex, pcStorage.length]);
 
   const selectedPokemon = useMemo(
-    () => pcStorage[selectedIndex] ?? pcStorage[0] ?? null,
-    [pcStorage, selectedIndex]
+    () => pcStorage[clampedIndex] ?? pcStorage[0] ?? null,
+    [pcStorage, clampedIndex]
   );
 
   const storageCount = pcStorage.length;
@@ -96,7 +94,7 @@ export default function PokemonPCPanel({ pcStorage = [], onClose }) {
       <header className="pc-header">
         <span className="pc-indicator" aria-hidden="true" />
         <div className="pc-header-copy">
-          <h2>POKÉMON STORAGE SYSTEM</h2>
+          <h2>POKEMON STORAGE SYSTEM</h2>
           <p>Manage stored Pokémon</p>
         </div>
         <div className="pc-header-count">{storageCount} Stored</div>
@@ -112,7 +110,7 @@ export default function PokemonPCPanel({ pcStorage = [], onClose }) {
           ) : (
             <div className="pc-grid">
               {pcStorage.map((pokemon, index) => {
-                const isSelected = index === selectedIndex;
+                const isSelected = index === clampedIndex;
                 const sprite = pokemon.sprite || DEFAULT_SPRITE;
                 const entryHpPercent = Math.min(100, Math.max(0, (pokemon.hp / Math.max(1, pokemon.maxHp)) * 100));
 

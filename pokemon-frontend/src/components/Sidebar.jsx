@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import ProfilePanel from './panels/ProfilePanel';
 import PokedexPanel from './panels/PokedexPanel';
 import PokemonPartyPanel from './panels/PokemonPartyPanel';
-import PokemonPCPanel from './game/panels/PokemonPCPanel';
+import PokemonPCPanel from './panels/PokemonPCPanel';
 import './Sidebar.css';
 import { getItemCount, ITEMS } from './game/inventory';
 

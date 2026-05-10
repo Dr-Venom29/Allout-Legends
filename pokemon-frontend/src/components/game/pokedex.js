@@ -6,40 +6,42 @@ export function createInitialPokedex() {
 }
 
 export function markPokemonSeen(pokedex, pokemonId) {
-  if (pokedex.seen.includes(pokemonId)) {
-    return pokedex;
-  }
+  const seenSet = new Set(pokedex.seen);
+
+  seenSet.add(pokemonId);
 
   return {
     ...pokedex,
-    seen: [...pokedex.seen, pokemonId],
+    seen: [...seenSet],
   };
 }
 
 export function markPokemonCaught(pokedex, pokemonId) {
-  let nextPokedex = pokedex;
+  const seenSet = new Set(pokedex.seen);
+  const caughtSet = new Set(pokedex.caught);
 
-  if (!nextPokedex.seen.includes(pokemonId)) {
-    nextPokedex = {
-      ...nextPokedex,
-      seen: [...nextPokedex.seen, pokemonId],
-    };
-  }
-
-  if (nextPokedex.caught.includes(pokemonId)) {
-    return nextPokedex;
-  }
+  seenSet.add(pokemonId);
+  caughtSet.add(pokemonId);
 
   return {
-    ...nextPokedex,
-    caught: [...nextPokedex.caught, pokemonId],
+    ...pokedex,
+    seen: [...seenSet],
+    caught: [...caughtSet],
   };
 }
 
 export function hasSeenPokemon(pokedex, pokemonId) {
-  return pokedex.seen.includes(pokemonId);
+  return new Set(pokedex.seen).has(pokemonId);
 }
 
 export function hasCaughtPokemon(pokedex, pokemonId) {
-  return pokedex.caught.includes(pokemonId);
+  return new Set(pokedex.caught).has(pokemonId);
+}
+
+export function getSeenCount(pokedex) {
+  return new Set(pokedex.seen).size;
+}
+
+export function getCaughtCount(pokedex) {
+  return new Set(pokedex.caught).size;
 }
