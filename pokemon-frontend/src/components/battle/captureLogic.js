@@ -1,3 +1,5 @@
+import { getCaptureStatusBonus } from "../game/statusConditions";
+
 export function attemptCapture(enemy, enemyHp, item) {
   if (!enemy || !enemy.maxHp) {
     return false;
@@ -14,7 +16,7 @@ export function attemptCapture(enemy, enemyHp, item) {
     255;
 
   const ballMultiplier = item?.ballMultiplier ?? 1.0;
-  const statusBonus = 1.0;
+  const statusBonus = getCaptureStatusBonus(enemy);
 
   const chance =
     ((3 * enemy.maxHp - 2 * enemyHp) /

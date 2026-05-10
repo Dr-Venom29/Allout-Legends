@@ -3,6 +3,8 @@ import {
   calculateDamage,
 } from "../../data/pokemon/battleHelpers";
 
+import { applyStatus } from "../game/statusConditions";
+
 import { getRandomPokemonByType } from "../../data/pokemon/pokemonData";
 
 import { RUN_SUCCESS_CHANCE } from "./battleConstants";
@@ -99,11 +101,25 @@ export function performPlayerMove({
     effectivenessText = " It's not very effective...";
   }
 
+  // Handle status effects from move (chance-based)
+  let enemyAfterStatus = enemy;
+  let statusMessage = null;
+
+  if (move.effects && move.effects.status) {
+    const chance = move.effects.chance ?? 100;
+    const roll = Math.random() * 100;
+    if (roll <= chance && (!enemy.status || !enemy.status.condition)) {
+      enemyAfterStatus = applyStatus(enemyAfterStatus, move.effects.status);
+      statusMessage = `${enemyAfterStatus.name} was ${move.effects.status}!`;
+    }
+  }
+
   return {
     isStatusMove: false,
     damage,
     newHp,
     enemyDefeated: newHp <= 0,
-    message: `${playerPokemon.name} used ${move.name}! It dealt ${damage} damage!${effectivenessText}`,
+    message: `${playerPokemon.name} used ${move.name}! It dealt ${damage} damage!${effectivenessText}` + (statusMessage ? ` ${statusMessage}` : ""),
+    enemyAfterStatus,
   };
 }

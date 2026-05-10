@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import "./Battle.css";
 
 import {
@@ -20,6 +20,7 @@ import {
   performEnemyAttack,
   performPlayerMove,
 } from "./battleLogic";
+import { canAct, applyEndOfTurnStatus } from "../game/statusConditions";
 import { calculateExpReward, addExperience } from "../game/experience";
 import {
   attemptCapture,
@@ -137,9 +138,11 @@ export default function Battle({
   // eslint-disable-next-line no-unused-vars -- reserved for future battle effects
   const [enemy, setEnemy] = useState(initialWildPokemon);
   const [enemyHp, setEnemyHp] = useState(
-    initialWildPokemon ? initialWildPokemon.hp : 0
+    initialWildPokemon ? (initialWildPokemon.currentHp ?? initialWildPokemon.hp) : 0
   );
-  const [playerHp, setPlayerHp] = useState(resolvedPlayerPokemon.hp);
+  const [playerHp, setPlayerHp] = useState(resolvedPlayerPokemon.currentHp ?? resolvedPlayerPokemon.hp);
+  const playerHpRef = useRef(playerHp);
+  const enemyHpRef = useRef(enemyHp);
   const [message, setMessage] = useState(
     initialWildPokemon
       ? `A wild ${initialWildPokemon.name} (Lv.${initialWildPokemon.level}) appeared!`
@@ -150,6 +153,25 @@ export default function Battle({
   const [phase, setPhase] = useState("action");
   const [isForcedSwitch, setIsForcedSwitch] = useState(false);
 
+  const finishBattle = (opts) => {
+    // Persist current battle HP back to the party slot (if applicable) before exiting
+    if (party && battlePartyIndex >= 0 && battlePartyIndex < party.length) {
+      setParty((prev) => {
+        const next = Array.isArray(prev) ? [...prev] : [];
+        const hpVal = playerHpRef.current ?? (resolvedPlayerPokemon.currentHp ?? resolvedPlayerPokemon.hp ?? 0);
+        next[battlePartyIndex] = {
+          ...next[battlePartyIndex],
+          hp: hpVal,
+          currentHp: hpVal,
+        };
+        return next;
+      });
+    }
+
+    // Call exit after scheduling party update
+    setTimeout(() => exitBattle(opts), 0);
+  };
+
   useEffect(() => {
     const numericId = Number(enemy?.number);
 
@@ -158,9 +180,17 @@ export default function Battle({
     }
   }, [enemy, onPokemonSeen]);
 
+  useEffect(() => {
+    playerHpRef.current = playerHp;
+  }, [playerHp]);
+
+  useEffect(() => {
+    enemyHpRef.current = enemyHp;
+  }, [enemyHp]);
+
   const enemyAttack = () => {
     if (!enemy) return;
-    const result = performEnemyAttack(enemy, playerHp);
+    const result = performEnemyAttack(enemy, playerHpRef.current);
     setPlayerHp(result.newHp);
     setMessage(result.message);
     if (result.playerDefeated) {
@@ -176,7 +206,76 @@ export default function Battle({
       } else {
         // No other Pokémon available - player loses
         setMessage("You have no Pokémon left!");
-        setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+        setTimeout(() => finishBattle(), BATTLE_END_DELAY);
+      }
+    }
+  };
+
+  const processEndOfTurnStatuses = () => {
+    // Apply end-of-turn statuses to player and enemy
+    // Player
+    const partyPokemon = party && party[battlePartyIndex];
+    if (partyPokemon) {
+      const currentHp = playerHpRef.current;
+      const current = { ...partyPokemon, hp: currentHp, currentHp: currentHp };
+      const playerEOT = applyEndOfTurnStatus(current);
+      if (playerEOT.damage > 0) {
+        setMessage((prev) => playerEOT.message || prev);
+      }
+      if (playerEOT.pokemon) {
+        setParty((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          // Ensure we persist both hp and currentHp from the battle state
+          next[battlePartyIndex] = {
+            ...playerEOT.pokemon,
+            hp: playerEOT.pokemon.hp ?? playerEOT.pokemon.currentHp ?? currentHp,
+            currentHp: playerEOT.pokemon.currentHp ?? playerEOT.pokemon.hp ?? currentHp,
+          };
+          return next;
+        });
+        setPlayerHp(playerEOT.pokemon.currentHp ?? playerEOT.pokemon.hp ?? 0);
+      }
+      if (playerEOT.fainted) {
+        if (hasUsablePokemon(party, battlePartyIndex)) {
+          setTimeout(() => {
+            setIsForcedSwitch(true);
+            setPhase("party-select");
+          }, 800);
+        } else {
+          setMessage("You have no Pokémon left!");
+            setTimeout(() => finishBattle(), BATTLE_END_DELAY);
+        }
+      }
+    }
+
+    // Enemy
+    if (enemy) {
+      const currentEnemy = { ...enemy, hp: enemyHpRef.current, currentHp: enemyHpRef.current };
+      const enemyEOT = applyEndOfTurnStatus(currentEnemy);
+      if (enemyEOT.damage > 0) {
+        setMessage((prev) => enemyEOT.message || prev);
+      }
+      if (enemyEOT.pokemon) {
+        setEnemy(enemyEOT.pokemon);
+        setEnemyHp(enemyEOT.pokemon.currentHp ?? enemyEOT.pokemon.hp ?? 0);
+      }
+      if (enemyEOT.fainted) {
+        setMessage(`${enemy.name} fainted! You won!`);
+        const expReward = calculateExpReward(enemy);
+        const targetPokemon = (party && battlePartyIndex >= 0 && battlePartyIndex < party.length)
+          ? party[battlePartyIndex]
+          : playerPokemon;
+        if (targetPokemon) {
+          const resultExp = addExperience(targetPokemon, expReward);
+          if (battlePartyIndex >= 0 && battlePartyIndex < party.length) {
+            setParty((prev) => {
+              const next = Array.isArray(prev) ? [...prev] : [];
+              next[battlePartyIndex] = resultExp.pokemon;
+              return next;
+            });
+          }
+        }
+          setTimeout(() => finishBattle(), BATTLE_END_DELAY);
       }
     }
   };
@@ -206,7 +305,7 @@ export default function Battle({
     if (action === "RUN") {
       if (tryRun()) {
         setMessage("Got away safely!");
-        setTimeout(() => exitBattle(), RUN_SUCCESS_DELAY);
+        setTimeout(() => finishBattle(), RUN_SUCCESS_DELAY);
       } else {
         setMessage("Couldn't escape!");
         setPhase("action");
@@ -258,7 +357,7 @@ export default function Battle({
       }
 
       setMessage(`Gotcha! ${enemy.name} was caught!`);
-      setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+      setTimeout(() => finishBattle(), BATTLE_END_DELAY);
       return;
     }
 
@@ -292,8 +391,8 @@ export default function Battle({
     setBattlePartyIndex(newIndex);
     setActivePartyIndex(newIndex);
 
-    // Update player HP to the new Pokémon's HP
-    setPlayerHp(selectedPokemon.hp ?? selectedPokemon.maxHp ?? 0);
+    // Update player HP to the new Pokémon's HP (prefer currentHp)
+    setPlayerHp(selectedPokemon.currentHp ?? selectedPokemon.hp ?? selectedPokemon.maxHp ?? 0);
 
     // Show switch message
     setPhase("message");
@@ -362,6 +461,35 @@ export default function Battle({
     if (!enemy) return;
     setSelectedMove(idx);
     const move = resolvedPlayerPokemon.moves[idx];
+
+    // Check if the player's Pokémon can act (sleep/paralysis/freeze)
+    const actCheck = canAct(resolvedPlayerPokemon);
+    if (!actCheck.canAct) {
+      // update party with any status changes (e.g., sleep decrement)
+      setParty((prev) => {
+        const next = Array.isArray(prev) ? [...prev] : [];
+        next[battlePartyIndex] = actCheck.pokemon;
+        return next;
+      });
+      setMessage(actCheck.message || "");
+      setTimeout(() => {
+        enemyAttack();
+        setPhase("action");
+        setSelectedAction(0);
+      }, STATUS_MOVE_DELAY);
+      return;
+    }
+
+    // If actCheck updated the pokemon (woke up etc.), persist that
+    if (actCheck.pokemon && actCheck.pokemon !== resolvedPlayerPokemon) {
+      setParty((prev) => {
+        const next = Array.isArray(prev) ? [...prev] : [];
+        next[battlePartyIndex] = actCheck.pokemon;
+        return next;
+      });
+      if (actCheck.message) setMessage(actCheck.message);
+    }
+
     const result = performPlayerMove({
       move,
       playerPokemon: resolvedPlayerPokemon,
@@ -380,7 +508,12 @@ export default function Battle({
       return;
     }
 
+    // Apply damage
     setEnemyHp(result.newHp);
+    // If result included an enemy object with status applied, update it
+    if (result.enemyAfterStatus) {
+      setEnemy(result.enemyAfterStatus);
+    }
 
     if (result.enemyDefeated) {
       setMessage(`${enemy.name} fainted! You won!`);
@@ -394,7 +527,7 @@ export default function Battle({
         : playerPokemon;
 
       if (!targetPokemon) {
-        setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+        setTimeout(() => finishBattle(), BATTLE_END_DELAY);
         return;
       }
 
@@ -421,14 +554,14 @@ export default function Battle({
               setMessage(`Congratulations! Your ${resultExp.previousName} evolved into ${resultExp.evolvedName}!`);
               setTimeout(() => {
                 if (resultExp.pendingMoveLearning) {
-                  exitBattle({
+                  finishBattle({
                     pendingMoveLearning: {
                       ...resultExp.pendingMoveLearning,
                       pokemon: resultExp.pokemon,
                     },
                   });
                 } else {
-                  exitBattle();
+                  finishBattle();
                 }
               }, BATTLE_END_DELAY);
             }, 1200);
@@ -439,21 +572,21 @@ export default function Battle({
             setMessage(`${resultExp.pokemon.name} grew to Level ${resultExp.newLevel}!`);
             setTimeout(() => {
               if (resultExp.pendingMoveLearning) {
-                exitBattle({
+                finishBattle({
                   pendingMoveLearning: {
                     ...resultExp.pendingMoveLearning,
                     pokemon: resultExp.pokemon,
                   },
                 });
               } else {
-                exitBattle();
+                finishBattle();
               }
             }, BATTLE_END_DELAY);
           }, 900);
         } else if (resultExp.pendingMoveLearning) {
           // Move learning without level-up
           setTimeout(() => {
-            exitBattle({
+            finishBattle({
               pendingMoveLearning: {
                 ...resultExp.pendingMoveLearning,
                 pokemon: resultExp.pokemon,
@@ -462,7 +595,7 @@ export default function Battle({
           }, BATTLE_END_DELAY);
         } else {
           // Just exit
-          setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+          setTimeout(() => finishBattle(), BATTLE_END_DELAY);
         }
       }, 800);
 
@@ -471,6 +604,10 @@ export default function Battle({
 
     setTimeout(() => {
       enemyAttack();
+      // After enemy's attack, apply end-of-turn status effects
+      setTimeout(() => {
+        processEndOfTurnStatuses();
+      }, 300);
       setPhase("action");
       setSelectedAction(0);
     }, PLAYER_ATTACK_DELAY);
