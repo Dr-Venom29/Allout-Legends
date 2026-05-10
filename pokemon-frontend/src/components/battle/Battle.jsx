@@ -342,7 +342,7 @@ export default function Battle({
         });
       }
 
-      // Show messages in sequence: EXP → Evolution (if any) → Level-up (if no evolution) → Exit
+      // Show messages in sequence: EXP → Evolution (if any) → Level-up (if no evolution) → Move learning (if any) → Exit
       setTimeout(() => {
         setMessage(`${resultExp.pokemon.name} gained ${resultExp.expGained} EXP!`);
 
@@ -352,15 +352,47 @@ export default function Battle({
             setMessage(`What? ${resultExp.previousName} is evolving!`);
             setTimeout(() => {
               setMessage(`Congratulations! Your ${resultExp.previousName} evolved into ${resultExp.evolvedName}!`);
-              setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+              setTimeout(() => {
+                if (resultExp.pendingMoveLearning) {
+                  exitBattle({
+                    pendingMoveLearning: {
+                      ...resultExp.pendingMoveLearning,
+                      pokemon: resultExp.pokemon,
+                    },
+                  });
+                } else {
+                  exitBattle();
+                }
+              }, BATTLE_END_DELAY);
             }, 1200);
           }, 1000);
         } else if (resultExp.leveledUp) {
           // Level-up message (only if not evolving)
           setTimeout(() => {
             setMessage(`${resultExp.pokemon.name} grew to Level ${resultExp.newLevel}!`);
-            setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+            setTimeout(() => {
+              if (resultExp.pendingMoveLearning) {
+                exitBattle({
+                  pendingMoveLearning: {
+                    ...resultExp.pendingMoveLearning,
+                    pokemon: resultExp.pokemon,
+                  },
+                });
+              } else {
+                exitBattle();
+              }
+            }, BATTLE_END_DELAY);
           }, 900);
+        } else if (resultExp.pendingMoveLearning) {
+          // Move learning without level-up
+          setTimeout(() => {
+            exitBattle({
+              pendingMoveLearning: {
+                ...resultExp.pendingMoveLearning,
+                pokemon: resultExp.pokemon,
+              },
+            });
+          }, BATTLE_END_DELAY);
         } else {
           // Just exit
           setTimeout(() => exitBattle(), BATTLE_END_DELAY);

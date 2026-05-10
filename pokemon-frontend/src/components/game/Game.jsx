@@ -26,6 +26,7 @@ import {
 } from "./playerStorage";
 import { loadPlayerMoney, savePlayerMoney } from "./playerStorage";
 import PokeMartPanel from "../panels/PokeMartPanel";
+import MoveLearningPanel from "./panels/MoveLearningPanel";
 import {
   MAP_NAMES,
   buildCurrentPaintLines,
@@ -37,6 +38,7 @@ import {
   markPokemonSeen,
 } from "./pokedex";
 import { loadActivePartyIndex } from "./partyStorage";
+import { replaceMove } from "./moveLearning.js";
 
 const TILE = 40;
 const VIEWPORT_W = 900;
@@ -127,6 +129,8 @@ export default function Game() {
   const [pokedex, setPokedex] = useState(
     () => loadPokedex()
   );
+
+  const [pendingMoveLearning, setPendingMoveLearning] = useState(null);
 
   const [paintLog, setPaintLog] = useState(() => {
     const savedLog = loadSavedPaintLog();
@@ -486,9 +490,14 @@ export default function Game() {
         {gameState === "battle" && (
           <Battle
             key={battleSeed}
-            exitBattle={() =>
-              setGameState("map")
-            }
+            exitBattle={(battleResultData) => {
+              if (battleResultData?.pendingMoveLearning) {
+                setPendingMoveLearning(battleResultData.pendingMoveLearning);
+                setGameState("move-learning");
+              } else {
+                setGameState("map");
+              }
+            }}
             mapId={currentMap}
             inventory={playerInventory}
             setInventory={setPlayerInventory}
@@ -499,6 +508,52 @@ export default function Game() {
             playerPokemon={activePokemon}
             onPokemonSeen={handlePokemonSeen}
             onPokemonCaught={handlePokemonCaught}
+          />
+        )}
+
+        {gameState === "move-learning" && pendingMoveLearning && (
+          <MoveLearningPanel
+            pokemon={pendingMoveLearning.pokemon}
+            newMove={pendingMoveLearning.move}
+            onReplaceMove={(moveIndex) => {
+              const updatedPokemon = replaceMove(
+                pendingMoveLearning.pokemon,
+                moveIndex,
+                pendingMoveLearning.move
+              );
+              
+              // Update party using activePartyIndex
+              if (activePartyIndex !== -1 && activePartyIndex < playerParty.length) {
+                setPlayerParty((prev) => {
+                  const next = [...prev];
+                  next[activePartyIndex] = updatedPokemon;
+                  return next;
+                });
+              } else {
+                // Fallback: find by matching properties
+                const partyIndex = playerParty.findIndex((p) => {
+                  if (!p) return false;
+                  if (p.number && updatedPokemon.number && p.number === updatedPokemon.number) return true;
+                  if (p.id && updatedPokemon.id && p.id === updatedPokemon.id) return true;
+                  if (p.name && updatedPokemon.name && p.name === updatedPokemon.name) return true;
+                  return false;
+                });
+                if (partyIndex !== -1) {
+                  setPlayerParty((prev) => {
+                    const next = [...prev];
+                    next[partyIndex] = updatedPokemon;
+                    return next;
+                  });
+                }
+              }
+              
+              setPendingMoveLearning(null);
+              setGameState("map");
+            }}
+            onCancel={() => {
+              setPendingMoveLearning(null);
+              setGameState("map");
+            }}
           />
         )}
 

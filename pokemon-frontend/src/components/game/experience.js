@@ -1,6 +1,7 @@
 import { POKEMON_DATA } from "../../data/pokemon/pokemonData.js";
 import { calculateHP, calculateStat } from "../../data/pokemon/battleHelpers.js";
 import { canEvolve, evolvePokemon } from "./evolution.js";
+import { getMovesLearnedAtLevel, learnMoves } from "./moveLearning.js";
 
 const MAX_LEVEL = 100;
 
@@ -155,6 +156,27 @@ export function addExperience(pokemonIn, amount) {
     evolvedName = pokemon.name;
   }
 
+  // Check for move learning (if level-up occurred)
+  let learnedMoveNames = [];
+  let pendingMoveLearning = null;
+
+  if (leveledUp) {
+    const movesAtLevel = getMovesLearnedAtLevel(pokemon, pokemon.level);
+    if (movesAtLevel.length > 0) {
+      const moveResult = learnMoves(pokemon, movesAtLevel);
+      pokemon = moveResult.pokemon;
+      learnedMoveNames = moveResult.learnedMoves;
+
+      // If moves are pending, set up the UI prompt
+      if (moveResult.pendingMoves.length > 0) {
+        pendingMoveLearning = {
+          move: moveResult.pendingMoves[0], // Only handle first pending move for now
+          allPending: moveResult.pendingMoves,
+        };
+      }
+    }
+  }
+
   return {
     pokemon,
     expGained: amount,
@@ -164,5 +186,7 @@ export function addExperience(pokemonIn, amount) {
     evolved,
     previousName: evolved ? previousName : null,
     evolvedName: evolved ? evolvedName : null,
+    learnedMoves: learnedMoveNames,
+    pendingMoveLearning,
   };
 }
