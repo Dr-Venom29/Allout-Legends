@@ -31,6 +31,7 @@ import {
   getItemCount,
   ITEMS,
 } from "../game/inventory";
+import PokemonPartyPanel from "../panels/PokemonPartyPanel";
 
 const PLAYER_POKEMON = {
   name: "PIKACHU",
@@ -88,35 +89,44 @@ export default function Battle({
   playerPokemon,
   onPokemonSeen,
   onPokemonCaught,
+  activePartyIndex = 0,
+  setActivePartyIndex = () => {},
 }) {
+  const [battlePartyIndex, setBattlePartyIndex] = useState(activePartyIndex);
+
   const resolvedPlayerPokemon = useMemo(() => {
-    if (!playerPokemon) {
+    // Use the battlePartyIndex to get the current pokemon from the party
+    const currentPokemon = party && battlePartyIndex >= 0 && battlePartyIndex < party.length
+      ? party[battlePartyIndex]
+      : playerPokemon;
+
+    if (!currentPokemon) {
       return PLAYER_POKEMON;
     }
 
     const fallbackMaxHp =
-      playerPokemon.maxHp ??
-      playerPokemon.hp ??
+      currentPokemon.maxHp ??
+      currentPokemon.hp ??
       PLAYER_POKEMON.maxHp;
 
     const fallbackHp =
-      playerPokemon.hp ??
+      currentPokemon.hp ??
       fallbackMaxHp;
 
     const moves =
-      Array.isArray(playerPokemon.moves) && playerPokemon.moves.length > 0
-        ? playerPokemon.moves
+      Array.isArray(currentPokemon.moves) && currentPokemon.moves.length > 0
+        ? currentPokemon.moves
         : PLAYER_POKEMON.moves;
 
     return {
       ...PLAYER_POKEMON,
-      ...playerPokemon,
+      ...currentPokemon,
       moves,
       maxHp: fallbackMaxHp,
       hp: fallbackHp,
-      sprite: playerPokemon.sprite || PLAYER_POKEMON.sprite,
+      sprite: currentPokemon.sprite || PLAYER_POKEMON.sprite,
     };
-  }, [playerPokemon]);
+  }, [playerPokemon, party, battlePartyIndex]);
 
   const initialWildPokemon = useMemo(
     () => createWildBattle(mapId),
@@ -170,6 +180,12 @@ export default function Battle({
     if (action === "BAG") {
       setPhase("bag");
       setMessage("Choose an item!");
+      return;
+    }
+
+    if (action === "POKEMON") {
+      setPhase("party-select");
+      setMessage("Choose a Pokemon!");
       return;
     }
 
@@ -241,7 +257,41 @@ export default function Battle({
     }, PLAYER_ATTACK_DELAY);
   };
 
-  
+  const handleSwitchPokemon = (newIndex) => {
+    const selectedPokemon = party[newIndex];
+
+    if (!selectedPokemon) return;
+
+    if (newIndex === battlePartyIndex) {
+      setMessage("This Pokémon is already in battle!");
+      setPhase("party-select");
+      return;
+    }
+
+    if ((selectedPokemon.currentHp ?? selectedPokemon.hp ?? 0) <= 0) {
+      setMessage("This Pokémon has fainted!");
+      setPhase("party-select");
+      return;
+    }
+
+    // Valid switch: update both local and global party index
+    setBattlePartyIndex(newIndex);
+    setActivePartyIndex(newIndex);
+
+    // Update player HP to the new Pokémon's HP
+    setPlayerHp(selectedPokemon.hp ?? selectedPokemon.maxHp ?? 0);
+
+    // Show switch message
+    setPhase("message");
+    setMessage(`Go! ${selectedPokemon.name}!`);
+
+    // After the switch message, the enemy attacks
+    setTimeout(() => {
+      setPhase("action");
+      setSelectedAction(0);
+      enemyAttack();
+    }, 1500);
+  };
 
   const handleHealingItem = () => {
     setMessage("Healing items are not implemented yet.");
@@ -311,33 +361,26 @@ export default function Battle({
     if (result.enemyDefeated) {
       setMessage(`${enemy.name} fainted! You won!`);
 
-      // Award EXP to active Pokémon and update party
+      // Award EXP to the currently battling Pokémon
       const expReward = calculateExpReward(enemy);
 
-      // Find active index in party (try reference first, then by identity)
-      const findActiveIndex = () => {
-        if (!party || party.length === 0) return -1;
-        let idx = party.indexOf(playerPokemon);
-        if (idx !== -1) return idx;
-        idx = party.findIndex((p) => {
-          if (!p || !playerPokemon) return false;
-          if (p.number && playerPokemon.number && p.number === playerPokemon.number) return true;
-          if (p.id && playerPokemon.id && p.id === playerPokemon.id) return true;
-          if (p.name && playerPokemon.name && p.name === playerPokemon.name) return true;
-          return false;
-        });
-        return idx;
-      };
+      // Get the target pokemon from party at battlePartyIndex
+      const targetPokemon = (party && battlePartyIndex >= 0 && battlePartyIndex < party.length)
+        ? party[battlePartyIndex]
+        : playerPokemon;
 
-      const activeIdx = findActiveIndex();
-      const targetPokemon = (activeIdx !== -1 && party[activeIdx]) ? party[activeIdx] : playerPokemon;
+      if (!targetPokemon) {
+        setTimeout(() => exitBattle(), BATTLE_END_DELAY);
+        return;
+      }
 
       const resultExp = addExperience(targetPokemon, expReward);
 
-      if (activeIdx !== -1) {
+      // Update party with the leveled-up pokemon
+      if (battlePartyIndex >= 0 && battlePartyIndex < party.length) {
         setParty((prev) => {
           const next = Array.isArray(prev) ? [...prev] : [];
-          next[activeIdx] = resultExp.pokemon;
+          next[battlePartyIndex] = resultExp.pokemon;
           return next;
         });
       }
@@ -483,72 +526,87 @@ export default function Battle({
 
       </div>
 
-      {/* Battle UI */}
-      <div className="battle-ui">
-        <div className="battle-message">
-          <div className="battle-text">{message}</div>
-        </div>
+      {/* Battle UI or Party Select */}
+      {phase === "party-select" ? (
+        <PokemonPartyPanel
+          playerParty={party}
+          activePartyIndex={battlePartyIndex}
+          isBattleMode={true}
+          currentBattlePokemonIndex={battlePartyIndex}
+          onSelectPokemon={handleSwitchPokemon}
+          onInvalidSelection={(text) => setMessage(text)}
+          onCancel={() => {
+            setPhase("action");
+            setSelectedAction(0);
+          }}
+        />
+      ) : (
+        <div className="battle-ui">
+          <div className="battle-message">
+            <div className="battle-text">{message}</div>
+          </div>
 
-        <div className="battle-actions">
-          {phase === "action" &&
-            ACTIONS.map((action, i) => (
-              <button
-                key={action}
-                className={`battle-btn${selectedAction === i ? " selected" : ""}`}
-                onClick={() => handleAction(i)}
-              >
-                {action}
-              </button>
-            ))}
-
-          {phase === "fight" &&
-            resolvedPlayerPokemon.moves.map((move, i) => (
-              <button
-                key={move.name}
-                className={`battle-btn${selectedMove === i ? " selected" : ""}`}
-                onClick={() => handleMove(i)}
-              >
-                {move.name}
-              </button>
-            ))}
-
-          {phase === "bag" && (
-            <>
-              {bagItems.length === 0 ? (
-                <button className="battle-btn" disabled>
-                  No usable items.
+          <div className="battle-actions">
+            {phase === "action" &&
+              ACTIONS.map((action, i) => (
+                <button
+                  key={action}
+                  className={`battle-btn${selectedAction === i ? " selected" : ""}`}
+                  onClick={() => handleAction(i)}
+                >
+                  {action}
                 </button>
-              ) : (
-                bagItems.map(([itemId, item]) => (
-                  <button
-                    key={itemId}
-                    className="battle-btn"
-                    onClick={() => handleUseItem(itemId)}
-                  >
-                    {item.icon && (
-                      <img
-                        src={item.icon}
-                        alt={item.name}
-                        style={{ width: 24, height: 24, imageRendering: 'pixelated', marginRight: 8 }}
-                      />
-                    )}
-                    {item.name} × {getItemCount(inventory, itemId)}
+              ))}
+
+            {phase === "fight" &&
+              resolvedPlayerPokemon.moves.map((move, i) => (
+                <button
+                  key={move.name}
+                  className={`battle-btn${selectedMove === i ? " selected" : ""}`}
+                  onClick={() => handleMove(i)}
+                >
+                  {move.name}
+                </button>
+              ))}
+
+            {phase === "bag" && (
+              <>
+                {bagItems.length === 0 ? (
+                  <button className="battle-btn" disabled>
+                    No usable items.
                   </button>
-                ))
-              )}
-              <button
-                className="battle-btn"
-                onClick={() => {
-                  setPhase("action");
-                  setSelectedAction(0);
-                }}
-              >
-                Back
-              </button>
-            </>
-          )}
+                ) : (
+                  bagItems.map(([itemId, item]) => (
+                    <button
+                      key={itemId}
+                      className="battle-btn"
+                      onClick={() => handleUseItem(itemId)}
+                    >
+                      {item.icon && (
+                        <img
+                          src={item.icon}
+                          alt={item.name}
+                          style={{ width: 24, height: 24, imageRendering: 'pixelated', marginRight: 8 }}
+                        />
+                      )}
+                      {item.name} × {getItemCount(inventory, itemId)}
+                    </button>
+                  ))
+                )}
+                <button
+                  className="battle-btn"
+                  onClick={() => {
+                    setPhase("action");
+                    setSelectedAction(0);
+                  }}
+                >
+                  Back
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

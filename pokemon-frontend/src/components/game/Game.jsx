@@ -508,6 +508,8 @@ export default function Game() {
             playerPokemon={activePokemon}
             onPokemonSeen={handlePokemonSeen}
             onPokemonCaught={handlePokemonCaught}
+            activePartyIndex={activePartyIndex}
+            setActivePartyIndex={setActivePartyIndex}
           />
         )}
 

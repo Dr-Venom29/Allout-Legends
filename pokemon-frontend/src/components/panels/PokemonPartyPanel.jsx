@@ -57,6 +57,11 @@ export default function PokemonPartyPanel({
   activePartyIndex = 0,
   setActivePartyIndex,
   onOpenPC,
+  isBattleMode = false,
+  onSelectPokemon = null,
+  onCancel = null,
+  onInvalidSelection = null,
+  currentBattlePokemonIndex = 0,
 }) {
   const selectedPokemon = useMemo(() =>
     playerParty[activePartyIndex] ?? playerParty[0] ?? null,
@@ -106,8 +111,8 @@ export default function PokemonPartyPanel({
       <header className="party-header">
         <span className="party-indicator" aria-hidden="true" />
         <div>
-          <h2>POKEMON PARTY</h2>
-          <p>Select your battle leader</p>
+          <h2>{isBattleMode ? "SWITCH POKEMON" : "POKEMON PARTY"}</h2>
+          <p>{isBattleMode ? "Choose a Pokemon to switch in" : "Select your battle leader"}</p>
         </div>
       </header>
 
@@ -115,6 +120,9 @@ export default function PokemonPartyPanel({
         <aside className="party-list" aria-label="Party list">
           {playerParty.map((pokemon, index) => {
             const isActive = index === activePartyIndex;
+            const isCurrentBattler = isBattleMode && index === currentBattlePokemonIndex;
+            const isFainted = (pokemon.currentHp ?? pokemon.hp ?? 0) <= 0;
+            const isUnavailable = isBattleMode && (isCurrentBattler || isFainted);
             const entryHpPercent = Math.min(
               100,
               Math.max(0, (pokemon.hp / Math.max(1, pokemon.maxHp)) * 100)
@@ -124,9 +132,24 @@ export default function PokemonPartyPanel({
               <button
                 key={`${pokemon.name}-${index}`}
                 type="button"
-                className={`party-card ${isActive ? "active" : ""}`.trim()}
-                onClick={() => setActivePartyIndex?.(index)}
+                className={`party-card ${isActive ? "active" : ""}${isCurrentBattler ? " in-battle" : ""}${isFainted ? " fainted" : ""}`.trim()}
+                onClick={() => {
+                  if (isBattleMode) {
+                    if (isCurrentBattler) {
+                      onInvalidSelection?.("This Pokémon is already in battle!");
+                      return;
+                    }
+                    if (isFainted) {
+                      onInvalidSelection?.("This Pokémon has fainted!");
+                      return;
+                    }
+                    onSelectPokemon?.(index);
+                  } else {
+                    setActivePartyIndex?.(index);
+                  }
+                }}
                 aria-pressed={isActive}
+                aria-disabled={isUnavailable}
               >
                 <span className="party-ball" aria-hidden="true" />
                 <img
@@ -154,6 +177,8 @@ export default function PokemonPartyPanel({
                   </div>
                 </div>
                 {isActive && <span className="party-active-badge">ACTIVE</span>}
+                {isCurrentBattler && <span className="party-battle-badge">IN BATTLE</span>}
+                {isFainted && <span className="party-fainted-badge">FAINTED</span>}
               </button>
             );
           })}
@@ -221,13 +246,23 @@ export default function PokemonPartyPanel({
       <footer className="party-footer">
         <span>{partyCount} / 6 Pokemon</span>
         <span>Leader: {selectedPokemon?.name ?? "None"}</span>
-        <button
-          className="party-open-pc-button"
-          onClick={onOpenPC}
-          type="button"
-        >
-          OPEN PC
-        </button>
+        {isBattleMode ? (
+          <button
+            className="party-open-pc-button"
+            onClick={() => onCancel?.()}
+            type="button"
+          >
+            CANCEL
+          </button>
+        ) : (
+          <button
+            className="party-open-pc-button"
+            onClick={onOpenPC}
+            type="button"
+          >
+            OPEN PC
+          </button>
+        )}
       </footer>
     </section>
   );
