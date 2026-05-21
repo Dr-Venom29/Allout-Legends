@@ -1,94 +1,137 @@
 import { BATTLE_EVENTS } from "./eventTypes";
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+import { COMMANDS } from "../presentation/presentationCommands";
 
 /**
  * Event Handlers Map
  * 
- * Each handler processes a specific semantic event and dictates how it is presented.
- * Handlers return an outcome object: { status: "completed" | "paused", ... }
+ * PURE HANDLERS. 
+ * They take semantic payloads and return a structured outcome containing presentation commands.
+ * No UI mutation happens here.
  */
 export const EVENT_HANDLERS = {
   
-  [BATTLE_EVENTS.TEXT]: async (payload, callbacks) => {
-    callbacks.setMessage(payload.message);
-    return { status: "completed" };
+  [BATTLE_EVENTS.TEXT]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.SHOW_MESSAGE, payload: { message: payload.message } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.WAIT]: async (payload, callbacks) => {
-    await sleep(payload.duration);
-    return { status: "completed" };
+  [BATTLE_EVENTS.WAIT]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.WAIT, payload: { duration: payload.duration } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.DAMAGE]: async (payload, callbacks) => {
-    if (payload.target === "enemy") {
-      callbacks.setEnemyHp(payload.newHp);
-    } else {
-      callbacks.setPlayerHp(payload.newHp);
-    }
-    return { status: "completed" };
+  [BATTLE_EVENTS.DAMAGE]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.UPDATE_HP_BAR, payload: { target: payload.target, newHp: payload.newHp } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.STATUS_TICK]: async (payload, callbacks) => {
-    if (payload.target === "enemy") {
-      callbacks.setEnemyHp(payload.newHp);
-    } else {
-      callbacks.setPlayerHp(payload.newHp);
-    }
-    return { status: "completed" };
+  [BATTLE_EVENTS.STATUS_TICK]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.UPDATE_HP_BAR, payload: { target: payload.target, newHp: payload.newHp } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.STATUS_BLOCK]: async (payload, callbacks) => {
-    // Currently visual-only via text events that accompany them,
-    // but could trigger specific visual shakes or particle effects later.
-    return { status: "completed" };
+  [BATTLE_EVENTS.STATUS_BLOCK]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: []
+    };
   },
 
-  [BATTLE_EVENTS.STATUS_CURE]: async (payload, callbacks) => {
-    return { status: "completed" };
+  [BATTLE_EVENTS.STATUS_CURE]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: []
+    };
   },
 
-  [BATTLE_EVENTS.FAINT]: async (payload, callbacks) => {
-    callbacks.onFaint(payload.target);
-    return { status: "completed" };
+  [BATTLE_EVENTS.FAINT]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.RESOLVE_FAINT, payload: { target: payload.target } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.END_BATTLE]: async (payload, callbacks) => {
-    callbacks.onEndBattle(payload.reason);
-    return { status: "completed" };
+  [BATTLE_EVENTS.END_BATTLE]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.RESOLVE_END_BATTLE, payload: { reason: payload.reason } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.EXP_GAIN]: async (payload, callbacks) => {
-    if (callbacks.setExpBar) callbacks.setExpBar(payload.amount);
-    return { status: "completed" };
+  [BATTLE_EVENTS.EXP_GAIN]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.UPDATE_EXP_BAR, payload: { amount: payload.amount } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.LEVEL_UP]: async (payload, callbacks) => {
-    if (callbacks.onLevelUp) callbacks.onLevelUp(payload.newLevel);
-    return { status: "completed" };
+  [BATTLE_EVENTS.LEVEL_UP]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.LEVEL_UP_ANIMATION, payload: { newLevel: payload.newLevel } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.STAT_UPDATE]: async (payload, callbacks) => {
-    if (callbacks.onStatUpdate) callbacks.onStatUpdate(payload.stats);
-    return { status: "completed" };
+  [BATTLE_EVENTS.STAT_UPDATE]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.STAT_UPDATE_ANIMATION, payload: { stats: payload.stats } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.EVOLUTION_START]: async (payload, callbacks) => {
-    if (callbacks.onEvolutionStart) callbacks.onEvolutionStart(payload.currentSpecies, payload.newSpecies);
-    return { status: "completed" };
+  [BATTLE_EVENTS.EVOLUTION_START]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.EVOLUTION_START_ANIMATION, payload: { currentSpecies: payload.currentSpecies, newSpecies: payload.newSpecies } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.EVOLUTION_COMPLETE]: async (payload, callbacks) => {
-    if (callbacks.onEvolutionComplete) callbacks.onEvolutionComplete(payload.newSpecies);
-    return { status: "completed" };
+  [BATTLE_EVENTS.EVOLUTION_COMPLETE]: async (payload, nextIndex) => {
+    return {
+      status: "completed",
+      commands: [
+        { type: COMMANDS.EVOLUTION_COMPLETE_ANIMATION, payload: { newSpecies: payload.newSpecies } }
+      ]
+    };
   },
 
-  [BATTLE_EVENTS.MOVE_LEARN_REQUEST]: async (payload, callbacks, nextIndex) => {
+  [BATTLE_EVENTS.MOVE_LEARN_REQUEST]: async (payload, nextIndex) => {
     return {
       status: "paused",
       reason: "MOVE_LEARN",
       data: payload,
       nextIndex,
+      commands: [
+        { type: COMMANDS.PAUSE_QUEUE, payload: { reason: "MOVE_LEARN", data: payload } }
+      ]
     };
   }
 };

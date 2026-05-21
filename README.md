@@ -1,47 +1,68 @@
 # AllOut Legends
 
-A modern, browser-based Pokémon-style RPG engine built with React 19 and Vite. Features a tile-based world, a mathematically authentic turn-based battle system, and a robust built-in map editor.
+A modern, highly-modular, browser-based Pokémon-style RPG engine built with React 19 and Vite. 
+
+**AllOut Legends** isn't just a basic React game—it is a deeply engineered, headless-capable RPG runtime featuring a deterministic event-queue battle system, a persistent World/Map Editor, and robust systems mimicking the authenticity of Gen 4 Pokémon mechanics.
 
 ---
 
-## Core Features
+## 🚀 Engine Architecture & The "Headless Runtime"
 
-### 🌍 World & Exploration
-- **Seamless Interconnected Realms**: Explore multiple tile-based maps with smooth camera tracking, collision detection, and gate-based transitions.
-- **In-Game Map Editor**: Press `P` to instantly toggle into map editing mode. Paint, fill, and erase tiles, then export JSON layouts directly from the browser.
-- **Dynamic Encounters**: Biome-based wild encounters (grass, cave, snow, water) governed by authentic rarity weighting.
-- **State Persistence**: Player position, map modifications, inventory, PC storage, and party data automatically persist in `localStorage`.
+The crown jewel of AllOut Legends is its **Deterministic Battle Orchestrator**. We explicitly separated the game logic from the React rendering lifecycle to create a truly portable engine.
 
-### ⚔️ Authentic Battle Engine
-- **Event-Driven Orchestrator Architecture**: The combat engine strictly separates Semantic intent from Presentation logic. The pure engine computes combat math and produces standardized deterministic events (`{ id, type, payload, meta }`). A React hook `useBattleQueue` orchestrates these events sequentially for UI dramatization, preventing React state race conditions and ensuring game progression integrity.
-- **Turn-Based Combat**: Full sequential turn resolution factoring in Speed, move Priority, and Paralysis modifiers.
-- **Damage Pipeline**: Gen 4 authentic formula including STAB, 18-type effectiveness, random variance, and Critical Hits (1/16 chance).
-- **Status Ecosystem**: Full support for Burn, Freeze, Paralysis, Poison, Sleep, and Volatile Statuses (Confusion). Handles pre-turn interruption and end-turn tick damage natively in the engine.
-- **Resource Management**: Moves are gated by Power Points (PP) with accuracy and evasion checks. Exhausting all moves forces a Struggle attack.
-- **Dual-Phase Progression**: Deep XP yield calculation, level scaling, and species evolution. Multi-leveling and interactive move-replacement natively pause the queue for a polished UX without corrupting save states.
+- **The Semantic Engine**: Combat math (damage calculation, speed sorting, status ticks) resolves instantly and deterministically. It produces a flat queue of pure Semantic Events (`{ id, type, payload, meta, timestamp }`).
+- **The Event Orchestrator (`useBattleQueue`)**: A strict state machine (`IDLE`, `RUNNING`, `PAUSED`) that pipelines the semantic events. It natively supports pausing execution for interactive prompts (like Move Replacement modals) without corrupting game state.
+- **Pure Event Handlers**: Semantic events are parsed into declarative JSON **Presentation Commands** (e.g., `UPDATE_HP_BAR`, `SHOW_MESSAGE`).
+- **The Presentation Adapter**: React acts merely as a "dumb terminal" adapter. It consumes these serialized commands and renders them. This means the core game engine could theoretically be run in headless Node.js AI simulations, replay viewers, or multiplayer servers.
+- **Save Integrity via Dual-Phase Progression**: RPG progression (multi-level ups, EXP gains, Evolutions) is fully calculated *before* visual playback begins. The updated save data is cached and only committed to `localStorage` when the queue perfectly drains. Closing the browser mid-animation will never corrupt your save file.
+
+---
+
+## ⚔️ Authentic Combat & Progression
+
+- **Gen 4 Damage Formula**: Deep damage pipeline factoring in STAB, 18-type effectiveness, random variance, and critical hits (1/16 base chance).
+- **Turn-Based Resolution**: Turn orders dynamically sorted by Pokémon Speed, Move Priority, and Paralysis debuffs.
+- **Status Ecosystem**: Full support for Burn, Freeze, Paralysis, Poison, Sleep, and Volatiles (Confusion). Handles pre-turn interruptions and end-turn tick damage natively.
+- **Resource Management (PP)**: Moves are gated by Power Points (PP) with accuracy and evasion checks. Exhausting all moves forces the authentic `Struggle` attack.
+- **Deep Progression**: Includes experience scaling, dynamic level-ups, stat recalculations, and evolution triggers.
+- **Mid-Battle Move Learning**: When a Pokémon learns a 5th move, the engine dynamically pauses the battle queue, prompts the user with a modal to replace an old move, and smoothly resumes playback.
 - **Capture Mechanics**: HP and rarity-based Poké Ball catch rates.
 
-### 🎒 Systems & UI
-- **Responsive Controls**: Desktop keyboard (Arrow Keys) and a reactive on-screen D-Pad for mobile support.
-- **Inventory & PC**: Manage a full party of 6, expansive PC storage, and a Poké Mart economy.
-- **Interactive UI**: Clean, custom CSS interfaces, including a 3D rotating Skins Carousel for player profiles.
+---
+
+## 🌍 World Exploration & Tools
+
+- **Interconnected Realms**: Explore multiple tile-based maps with smooth camera tracking, collision detection, and gate-based transitions.
+- **Dynamic Biome Encounters**: Grass, Cave, Water, and Snow biomes generate random wild encounters governed by weighted rarity tables.
+- **Built-in Map Editor**: Press `P` at any time to toggle into Map Editing Mode. Paint, fill, and erase tiles with live visual feedback. Export your custom maps directly to JSON layouts.
+- **Zero-Backend Persistence**: Complete state persistence leveraging `localStorage`. Player position, modified maps, inventory, PC storage, and party progression are automatically saved.
 
 ---
 
-## Tech Stack
+## 🎒 robust RPG Systems & UI
+
+- **Pokédex**: A full Pokédex index system tracking all 493 Gen 1–4 Pokémon natively supported by the engine.
+- **PC Box Storage**: Expansive PC storage system allowing drag-and-drop party management.
+- **Poké Mart Economy**: Buy and sell items (Pokéballs, Potions, Revives) using in-game currency.
+- **Skins & Profiles**: Clean, custom CSS interfaces including a **3D rotating Skins Carousel** for player customization.
+- **Responsive Controls**: Play via Desktop keyboard (Arrow Keys/WASD) or an intuitive on-screen reactive D-Pad for Mobile browsers.
+
+---
+
+## 🛠️ Tech Stack
 
 | Technology | Purpose |
 | ---------- | ------- |
-| **React 19** | Component architecture & State orchestration |
+| **React 19** | Component orchestration and UI Presentation |
 | **Vite 8** | Rapid development & build tooling |
-| **CSS Grid** | High-performance 2D tile rendering |
-| **localStorage** | Zero-backend state persistence |
+| **CSS Grid/Transforms** | High-performance 2D tile rendering & 3D UI carousels |
+| **localStorage** | Client-side save state and serialization |
 
-*Note: The engine leverages O(1) lookups and immutable data patterns to handle all 493 Gen 1–4 Pokémon efficiently.*
+*Note: The engine leverages O(1) lookups and immutable data patterns to handle all 493 Pokémon variants efficiently without performance degradation.*
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 git clone <repo>
@@ -50,20 +71,20 @@ npm install
 npm run dev
 ```
 
-*Required assets (sprites, tilesets) must be placed in `public/assets/` to render correctly.*
+*Required assets (sprites, tilesets, sounds) must be placed in `public/assets/` to render correctly.*
 
 ---
 
-## Status & Roadmap
+## 🗺️ Roadmap & Future Horizons
 
-**Currently in v1.0** — The core engine, 493 Pokémon, and complete battle mechanics are fully integrated.
+**Currently in v1.0** — The core Deterministic Engine, 493 Pokémon data layer, and RPG UI systems are fully integrated.
 
 **Upcoming Milestones:**
-- 🏙️ **World**: NPC Trainers, Gym Leaders, and a Dialogue/Quest system.
-- ⚡ **Combat**: Weather Effects, Held Items, and Stat Buffs/Debuffs (Swords Dance, Leer).
-- 🌐 **Multiplayer**: Node.js/Flask backend for Online Battles and Trading.
+- 🌩️ **Complex Combat**: Weather Effects (Rain/Sandstorm), Terrains, Held Items, and passive Abilities.
+- 🏙️ **World Expansion**: NPC Trainers, Gym Leaders, Dialogue trees, and an overarching Quest system.
+- 🌐 **Multiplayer**: Expanding the Headless runtime to a Node.js/Redis backend for Online Battles, Matchmaking, and Trading.
 
 ---
 
-*Custom engine developed by the AllOut Legends Team.*
+*Custom engine architecture developed by the AllOut Legends Team.*
 *License: MIT*

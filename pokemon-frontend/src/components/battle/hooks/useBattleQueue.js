@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { EVENT_HANDLERS } from "../events/eventHandlers";
 import { assertEventShape } from "../events/eventValidation";
+import { executeCommands } from "../presentation/presentationAdapter";
 
 export const QUEUE_STATES = {
   IDLE: "IDLE",
@@ -64,8 +65,13 @@ export function useBattleQueue(callbacks) {
         continue;
       }
 
-      // Execute semantic event -> presentation adapter
-      const outcome = await handler(event.payload, callbacks, state.currentIndex + 1);
+      // Execute semantic event -> pure handler -> presentation commands
+      const outcome = await handler(event.payload, state.currentIndex + 1);
+
+      // Execute presentation commands via Adapter
+      if (outcome.commands && outcome.commands.length > 0) {
+        await executeCommands(outcome.commands, callbacks);
+      }
 
       if (outcome.status === "paused") {
         state.currentIndex = outcome.nextIndex;

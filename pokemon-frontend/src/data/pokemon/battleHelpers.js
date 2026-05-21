@@ -39,7 +39,7 @@ export function getEffectivenessText(effectiveness) {
 }
 
 // Calculate damage
-export function calculateDamage(move, attacker, defender) {
+export function calculateDamage(move, attacker, defender, powerMultiplier = 1.0) {
   // Base power based on move (simplified)
   const movePower = move.power || 40;
   
@@ -78,7 +78,7 @@ export function calculateDamage(move, attacker, defender) {
   // Random factor (85-100%)
   const random = 0.85 + Math.random() * 0.15;
   
-  let damage = ((2 * level / 5 + 2) * movePower * (attackStat / safeDefenseStat) / 50 + 2) * stab * effectiveness * criticalMultiplier * random;
+  let damage = ((2 * level / 5 + 2) * movePower * (attackStat / safeDefenseStat) / 50 + 2) * stab * effectiveness * criticalMultiplier * random * powerMultiplier;
   damage = Math.max(1, Math.floor(damage));
 
   if (effectiveness === 0) {
