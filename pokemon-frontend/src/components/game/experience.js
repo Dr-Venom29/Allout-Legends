@@ -2,6 +2,7 @@ import { POKEMON_DATA } from "../../data/pokemon/pokemonData.js";
 import { calculateHP, calculateStat } from "../../data/pokemon/battleHelpers.js";
 import { canEvolve, evolvePokemon } from "./evolution.js";
 import { getMovesLearnedAtLevel, learnMoves } from "./moveLearning.js";
+import { getBaseStats, getBaseExp } from "../../data/pokemon/pokemonLookup.js";
 
 const MAX_LEVEL = 100;
 
@@ -9,39 +10,46 @@ export function getExpForLevel(level) {
   return Math.pow(level, 3);
 }
 
-export function calculateExpReward(enemy) {
-  if (!enemy || typeof enemy.level !== "number") return 0;
-  return enemy.level * 20;
+function getNextLevelExp(pokemon) {
+  return getExpForLevel(pokemon.level);
 }
 
-function lookupBaseStats(pokemon) {
-  if (!pokemon) return null;
+export function calculateExpReward(enemy) {
+  if (!enemy || typeof enemy.level !== "number") return 0;
+  const baseExp = getBaseExp(enemy) || 140; // Default fallback if not found
+  return Math.floor((baseExp * enemy.level) / 7);
+}
 
-  // Try numeric number first
-  const num = pokemon.number ?? pokemon.id ?? null;
+function recalculateStats(pokemon) {
+  const baseStats = getBaseStats(pokemon);
+    if (baseStats) {
+      const newMaxHp = calculateHP(baseStats.hp, pokemon.level);
+      const newAttack = calculateStat(baseStats.attack, pokemon.level);
+      const newDefense = calculateStat(baseStats.defense, pokemon.level);
+      const newSpAttack = calculateStat(baseStats.spAttack, pokemon.level);
+      const newSpDefense = calculateStat(baseStats.spDefense, pokemon.level);
+      const newSpeed = calculateStat(baseStats.speed, pokemon.level);
 
-  if (num) {
-    const key = String(num).padStart(3, "0");
-    const entry = POKEMON_DATA[key];
-    if (entry && entry.BaseStats) return entry.BaseStats;
+      pokemon.maxHp = newMaxHp;
+      pokemon.attack = newAttack;
+      pokemon.defense = newDefense;
+      pokemon.spAttack = newSpAttack;
+      pokemon.spDefense = newSpDefense;
+      pokemon.speed = newSpeed;
+    }
+}
+
+function getNextHp(pokemon) {
+  const baseStats = getBaseStats(pokemon);
+  if (baseStats) {
+    return calculateHP(baseStats.hp, pokemon.level);
+  } else {
+    return pokemon.hp;
   }
+}
 
-  // Try name / internal id
-  if (pokemon.id) {
-    const entry = Object.values(POKEMON_DATA).find(
-      (e) => e.InternalName === pokemon.id || e.Name === pokemon.id
-    );
-    if (entry && entry.BaseStats) return entry.BaseStats;
-  }
-
-  if (pokemon.name) {
-    const entry = Object.values(POKEMON_DATA).find(
-      (e) => e.Name === pokemon.name || e.InternalName === pokemon.name
-    );
-    if (entry && entry.BaseStats) return entry.BaseStats;
-  }
-
-  return null;
+function isEligibleForEvolution(pokemon) {
+  return canEvolve(pokemon);
 }
 
 export function normalizePokemon(pokemon) {
@@ -51,7 +59,6 @@ export function normalizePokemon(pokemon) {
   const nextLevelExp = Number.isFinite(pokemon.nextLevelExp)
     ? pokemon.nextLevelExp
     : (Number.isFinite(pokemon.xpToNext) ? pokemon.xpToNext : getExpForLevel(level));
-
   return {
     ...pokemon,
     level,
@@ -71,7 +78,7 @@ export function addExperience(pokemonIn, amount) {
     };
   }
 
-  const pokemon = { ...normalizePokemon(pokemonIn) };
+  let pokemon = { ...normalizePokemon(pokemonIn) };
 
   if (pokemon.level >= MAX_LEVEL) {
     // At max level, do not accumulate exp
@@ -89,60 +96,35 @@ export function addExperience(pokemonIn, amount) {
 
   let leveledUp = false;
   let levelsGained = 0;
+  let learnedMoveNames = [];
+  let pendingMoveLearning = null;
 
-  // Lookup base stats for accurate recalculation
-  const baseStats = lookupBaseStats(pokemonIn);
+  while (pokemon.exp >= getNextLevelExp(pokemon) && pokemon.level < MAX_LEVEL) {
+    // Increase level
+    pokemon.level += 1;
 
-  // Keep original maxHp for hp gain calculation
-  let oldMaxHp = pokemon.maxHp ?? (baseStats ? calculateHP(baseStats.hp, pokemon.level) : pokemon.maxHp ?? 10);
+    // Learn moves for this level
+    const movesAtLevel = getMovesLearnedAtLevel(pokemon, pokemon.level);
+    if (movesAtLevel && movesAtLevel.length > 0) {
+      const moveResult = learnMoves(pokemon, movesAtLevel);
+      pokemon = moveResult.pokemon;
+      if (moveResult.learnedMoves.length > 0) {
+        learnedMoveNames.push(...moveResult.learnedMoves);
+      }
+      if (moveResult.pendingMoves.length > 0 && !pendingMoveLearning) {
+        pendingMoveLearning = moveResult.pendingMoves[0];
+      }
+    }
 
-  while (pokemon.exp >= (pokemon.nextLevelExp || getExpForLevel(pokemon.level)) && pokemon.level < MAX_LEVEL) {
-    const target = pokemon.nextLevelExp || getExpForLevel(pokemon.level);
-    if (pokemon.exp < target) break;
+    // Recalculate stats
+    recalculateStats(pokemon);
 
-    // Level up
-    pokemon.exp = pokemon.exp - target;
-    pokemon.level = Math.min(MAX_LEVEL, pokemon.level + 1);
-    levelsGained += 1;
+    // Sync hp and currentHp
+    pokemon.hp = pokemon.currentHp = getNextHp(pokemon);
+
+    remainingExp -= getNextLevelExp(pokemon);
     leveledUp = true;
-
-    // Recalculate stats if we have base stats
-    if (baseStats) {
-      const newMaxHp = calculateHP(baseStats.hp, pokemon.level);
-      const newAttack = calculateStat(baseStats.attack, pokemon.level);
-      const newDefense = calculateStat(baseStats.defense, pokemon.level);
-      const newSpAttack = calculateStat(baseStats.spAttack, pokemon.level);
-      const newSpDefense = calculateStat(baseStats.spDefense, pokemon.level);
-      const newSpeed = calculateStat(baseStats.speed, pokemon.level);
-
-      const hpGain = newMaxHp - (pokemon.maxHp ?? oldMaxHp);
-      pokemon.maxHp = newMaxHp;
-      pokemon.attack = newAttack;
-      pokemon.defense = newDefense;
-      pokemon.spAttack = newSpAttack;
-      pokemon.spDefense = newSpDefense;
-      pokemon.speed = newSpeed;
-
-      // Increase current HP by hpGain while preserving remaining HP proportionally
-      pokemon.hp = Math.min(pokemon.maxHp, (Number.isFinite(pokemon.hp) ? pokemon.hp : newMaxHp) + Math.max(0, hpGain));
-      oldMaxHp = newMaxHp;
-    }
-
-    // Set next level threshold
-    pokemon.nextLevelExp = getExpForLevel(pokemon.level);
-
-    // If reached max level, cap exp
-    if (pokemon.level >= MAX_LEVEL) {
-      pokemon.level = MAX_LEVEL;
-      pokemon.exp = getExpForLevel(MAX_LEVEL);
-      pokemon.nextLevelExp = getExpForLevel(MAX_LEVEL);
-      break;
-    }
-  }
-
-  // If we didn't have base stats but levels changed, at least update nextLevelExp
-  if (!baseStats && leveledUp) {
-    pokemon.nextLevelExp = getExpForLevel(pokemon.level);
+    levelsGained += 1;
   }
 
   // Check for evolution after level-ups
@@ -150,31 +132,10 @@ export function addExperience(pokemonIn, amount) {
   let evolved = false;
   let evolvedName = null;
 
-  if (canEvolve(pokemon)) {
+  if (isEligibleForEvolution(pokemon)) {
     pokemon = evolvePokemon(pokemon);
     evolved = true;
     evolvedName = pokemon.name;
-  }
-
-  // Check for move learning (if level-up occurred)
-  let learnedMoveNames = [];
-  let pendingMoveLearning = null;
-
-  if (leveledUp) {
-    const movesAtLevel = getMovesLearnedAtLevel(pokemon, pokemon.level);
-    if (movesAtLevel.length > 0) {
-      const moveResult = learnMoves(pokemon, movesAtLevel);
-      pokemon = moveResult.pokemon;
-      learnedMoveNames = moveResult.learnedMoves;
-
-      // If moves are pending, set up the UI prompt
-      if (moveResult.pendingMoves.length > 0) {
-        pendingMoveLearning = {
-          move: moveResult.pendingMoves[0], // Only handle first pending move for now
-          allPending: moveResult.pendingMoves,
-        };
-      }
-    }
   }
 
   return {
@@ -187,6 +148,7 @@ export function addExperience(pokemonIn, amount) {
     previousName: evolved ? previousName : null,
     evolvedName: evolved ? evolvedName : null,
     learnedMoves: learnedMoveNames,
-    pendingMoveLearning,
+    pendingMoveLearning: pendingMoveLearning,
   };
 }
+
