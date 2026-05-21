@@ -1,9 +1,12 @@
 import {
   generateWildPokemon,
   calculateDamage,
+  getEffectivenessText,
 } from "../../data/pokemon/battleHelpers";
+import { buildMove } from "../../data/pokemon/moveData";
 
 import { applyStatus } from "../game/statusConditions";
+import { checkMoveHit } from "./battleAccuracy";
 
 import { getRandomPokemonByType } from "../../data/pokemon/pokemonData";
 
@@ -52,15 +55,105 @@ export function tryRun() {
   return Math.random() < RUN_SUCCESS_CHANCE;
 }
 
-export function performEnemyAttack(enemy, playerHp) {
-  const damage = Math.floor(Math.random() * 15) + 5;
+export function applyMoveEffects(move, attacker, defender) {
+  let defenderAfterStatus = defender;
+  let statusMessage = null;
+
+  if (move.effects && move.effects.status) {
+    const chance = move.effects.chance ?? 100;
+    const roll = Math.random() * 100;
+    if (roll <= chance && (!defender.status || !defender.status.condition)) {
+      defenderAfterStatus = applyStatus(defenderAfterStatus, move.effects.status);
+      statusMessage = `${defenderAfterStatus.name} was ${move.effects.status}!`;
+    }
+  }
+
+  // Placeholder for stat debuffs / accuracy checks later
+
+  return {
+    defenderAfterStatus,
+    statusMessage,
+  };
+}
+
+export function performEnemyAttack(enemy, playerHp, playerPokemon) {
+  // Check if enemy can act (paralysis/sleep/freeze) - assume this is checked before calling, or we check it here
+  // Actually, Battle.jsx currently just calls performEnemyAttack unconditionally, we should fix that later.
+  
+  // Get available moves or fallback
+  const availableMoves = Array.isArray(enemy.moves) && enemy.moves.length > 0
+    ? enemy.moves
+    : [buildMove("Tackle", "Normal")];
+
+  const moveIndex = Math.floor(Math.random() * availableMoves.length);
+  const move = availableMoves[moveIndex];
+
+  if (!move) {
+    return {
+      damage: 0,
+      newHp: playerHp,
+      message: `${enemy.name} is loafing around!`,
+      playerDefeated: false,
+    };
+  }
+
+  // Decrement PP if not Struggle (which has null PP)
+  if (move.currentPP !== null && move.currentPP > 0) {
+    move.currentPP -= 1;
+  }
+
+  if (move.power === 0) {
+    // Status move — accuracy check first
+    const hitCheck = checkMoveHit(move, enemy, playerPokemon);
+    if (!hitCheck.hit) {
+      return {
+        damage: 0,
+        newHp: playerHp,
+        message: `${enemy.name} used ${move.name}! ${hitCheck.message}`,
+        playerDefeated: false,
+        playerAfterStatus: playerPokemon,
+        attackerAfterMove: enemy,
+      };
+    }
+    const effectsResult = applyMoveEffects(move, enemy, playerPokemon);
+    const message = `${enemy.name} used ${move.name}!` + (effectsResult.statusMessage ? ` ${effectsResult.statusMessage}` : " But it failed!");
+    return {
+      damage: 0,
+      newHp: playerHp,
+      message,
+      playerDefeated: false,
+      playerAfterStatus: effectsResult.defenderAfterStatus,
+      attackerAfterMove: enemy,
+    };
+  }
+
+  // Damaging move — accuracy check
+  const hitCheck = checkMoveHit(move, enemy, playerPokemon);
+  if (!hitCheck.hit) {
+    return {
+      damage: 0,
+      newHp: playerHp,
+      message: `${enemy.name} used ${move.name}! ${hitCheck.message}`,
+      playerDefeated: false,
+      playerAfterStatus: playerPokemon,
+      attackerAfterMove: enemy,
+    };
+  }
+
+  const { damage, effectiveness, critical } = calculateDamage(move, enemy, playerPokemon);
   const newHp = Math.max(0, playerHp - damage);
+
+  const effectivenessText = getEffectivenessText(effectiveness);
+  const criticalText = critical ? " A critical hit!" : "";
+  const effectsResult = applyMoveEffects(move, enemy, playerPokemon);
 
   return {
     damage,
     newHp,
-    message: `${enemy.name} attacked! It dealt ${damage} damage!`,
+    message: `${enemy.name} used ${move.name}! It dealt ${damage} damage!${criticalText}${effectivenessText}` + (effectsResult.statusMessage ? ` ${effectsResult.statusMessage}` : ""),
     playerDefeated: newHp <= 0,
+    playerAfterStatus: effectsResult.defenderAfterStatus,
+    attackerAfterMove: enemy,
   };
 }
 
@@ -78,14 +171,53 @@ export function performPlayerMove({
     };
   }
 
+  // Decrement PP if not Struggle (which has null PP)
+  if (move.currentPP !== null && move.currentPP > 0) {
+    move.currentPP -= 1;
+  }
+
   if (move.power === 0) {
+    // Status move — accuracy check first
+    const hitCheck = checkMoveHit(move, playerPokemon, enemy);
+    if (!hitCheck.hit) {
+      return {
+        isStatusMove: true,
+        damage: 0,
+        newHp: enemyHp,
+        enemyDefeated: false,
+        message: `${playerPokemon.name} used ${move.name}! ${hitCheck.message}`,
+        enemyAfterStatus: enemy,
+        attackerAfterMove: playerPokemon,
+      };
+    }
+    const effectsResult = applyMoveEffects(move, playerPokemon, enemy);
+    const message = `${playerPokemon.name} used ${move.name}!` + (effectsResult.statusMessage ? ` ${effectsResult.statusMessage}` : " But it failed!");
     return {
       isStatusMove: true,
-      message: `${playerPokemon.name} used ${move.name}! But it had no effect!`,
+      damage: 0,
+      newHp: enemyHp,
+      enemyDefeated: false,
+      message,
+      enemyAfterStatus: effectsResult.defenderAfterStatus,
+      attackerAfterMove: playerPokemon,
     };
   }
 
-  const damage = calculateDamage(
+  // Damaging move — accuracy check
+  const hitCheck = checkMoveHit(move, playerPokemon, enemy);
+  if (!hitCheck.hit) {
+    return {
+      isStatusMove: false,
+      damage: 0,
+      newHp: enemyHp,
+      enemyDefeated: false,
+      message: `${playerPokemon.name} used ${move.name}! ${hitCheck.message}`,
+      enemyAfterStatus: enemy,
+      attackerAfterMove: playerPokemon,
+    };
+  }
+
+  const { damage, effectiveness, critical } = calculateDamage(
     move,
     playerPokemon,
     enemy
@@ -93,33 +225,17 @@ export function performPlayerMove({
 
   const newHp = Math.max(0, enemyHp - damage);
 
-  let effectivenessText = "";
-
-  if (damage > enemyHp * 0.5) {
-    effectivenessText = " It's super effective!";
-  } else if (damage < enemyHp * 0.1) {
-    effectivenessText = " It's not very effective...";
-  }
-
-  // Handle status effects from move (chance-based)
-  let enemyAfterStatus = enemy;
-  let statusMessage = null;
-
-  if (move.effects && move.effects.status) {
-    const chance = move.effects.chance ?? 100;
-    const roll = Math.random() * 100;
-    if (roll <= chance && (!enemy.status || !enemy.status.condition)) {
-      enemyAfterStatus = applyStatus(enemyAfterStatus, move.effects.status);
-      statusMessage = `${enemyAfterStatus.name} was ${move.effects.status}!`;
-    }
-  }
+  const effectivenessText = getEffectivenessText(effectiveness);
+  const criticalText = critical ? " A critical hit!" : "";
+  const effectsResult = applyMoveEffects(move, playerPokemon, enemy);
 
   return {
     isStatusMove: false,
     damage,
     newHp,
     enemyDefeated: newHp <= 0,
-    message: `${playerPokemon.name} used ${move.name}! It dealt ${damage} damage!${effectivenessText}` + (statusMessage ? ` ${statusMessage}` : ""),
-    enemyAfterStatus,
+    message: `${playerPokemon.name} used ${move.name}! It dealt ${damage} damage!${criticalText}${effectivenessText}` + (effectsResult.statusMessage ? ` ${effectsResult.statusMessage}` : ""),
+    enemyAfterStatus: effectsResult.defenderAfterStatus,
+    attackerAfterMove: playerPokemon,
   };
 }

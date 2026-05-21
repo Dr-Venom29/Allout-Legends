@@ -1,4 +1,4 @@
-import { POKEMON_DATA } from "../../data/pokemon/pokemonData.js";
+import { getPokemonEntry } from "../../data/pokemon/pokemonLookup.js";
 import { calculateHP, calculateStat, getPokemonSprite } from "../../data/pokemon/battleHelpers.js";
 import { buildMove } from "../../data/pokemon/moveData.js";
 
@@ -9,8 +9,7 @@ export function canEvolve(pokemon) {
   const pokemonNumber = pokemon.number ?? pokemon.id ?? null;
   if (!pokemonNumber) return false;
 
-  const key = String(pokemonNumber).padStart(3, "0");
-  const entry = POKEMON_DATA[key];
+  const entry = getPokemonEntry(pokemonNumber);
 
   if (!entry || !entry.Evolution) return false;
 
@@ -30,27 +29,18 @@ export function evolvePokemon(pokemonIn) {
   const currentNumber = pokemonIn.number ?? pokemonIn.id ?? null;
   if (!currentNumber) return pokemonIn;
 
-  const currentKey = String(currentNumber).padStart(3, "0");
-  const currentEntry = POKEMON_DATA[currentKey];
+  const currentEntry = getPokemonEntry(currentNumber);
 
   if (!currentEntry || !currentEntry.Evolution) return pokemonIn;
 
   const { to: evolvedName } = currentEntry.Evolution;
   if (!evolvedName) return pokemonIn;
 
-  // Find the evolved Pokémon by matching InternalName (case-insensitive)
-  let evolvedNumber = null;
-  let evolvedEntry = null;
+  // Find the evolved Pokémon using the lookup map (O(1))
+  const evolvedEntry = getPokemonEntry(evolvedName);
 
-  for (const [num, data] of Object.entries(POKEMON_DATA)) {
-    if (data.InternalName && data.InternalName.toUpperCase() === evolvedName.toUpperCase()) {
-      evolvedNumber = num;
-      evolvedEntry = data;
-      break;
-    }
-  }
-
-  if (!evolvedEntry || !evolvedNumber) return pokemonIn;
+  if (!evolvedEntry) return pokemonIn;
+  const evolvedNumber = Number(evolvedEntry.Number) || Number(evolvedEntry.number) || null;
 
   // Calculate current HP ratio to preserve player's battle state
   const maxHpBefore = pokemonIn.maxHp ?? 10;
@@ -68,19 +58,11 @@ export function evolvePokemon(pokemonIn) {
   // Preserve current HP ratio
   const newCurrentHp = Math.max(1, Math.floor(newMaxHp * hpRatio));
 
-  // Get moves available at current level
-  const availableMoves = (evolvedEntry.Moves || [])
-    .filter((m) => m.level <= pokemonIn.level)
-    .slice(-4)
-    .map((m) => buildMove(m.name, evolvedEntry.Type1));
-
-  if (availableMoves.length === 0) {
-    availableMoves.push({
-      name: "Tackle",
-      power: 40,
-      type: "Normal",
-      category: "physical",
-    });
+  // Preserve existing custom moves (TMs, previous learnset, etc.)
+  const preservedMoves = (pokemonIn.moves || []).map(move => ({ ...move }));
+  
+  if (preservedMoves.length === 0) {
+    preservedMoves.push(buildMove("Tackle", evolvedEntry.Type1));
   }
 
   // Build the evolved Pokémon object, preserving progression data
@@ -93,6 +75,7 @@ export function evolvePokemon(pokemonIn) {
     rareness: evolvedEntry.Rareness ?? 255,
     level: pokemonIn.level,
     hp: newCurrentHp,
+    currentHp: newCurrentHp,
     maxHp: newMaxHp,
     attack: newAttack,
     defense: newDefense,
@@ -101,7 +84,7 @@ export function evolvePokemon(pokemonIn) {
     speed: newSpeed,
     type1: evolvedEntry.Type1,
     type2: evolvedEntry.Type2 || null,
-    moves: availableMoves,
+    moves: preservedMoves,
     sprite: getPokemonSprite(Number(evolvedNumber)),
     // Preserve progression
     exp: pokemonIn.exp,

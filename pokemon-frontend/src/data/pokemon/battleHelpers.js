@@ -1,6 +1,7 @@
 // Battle calculation helpers
 import { POKEMON_DATA } from './pokemonData.js';
 import { buildMove } from './moveData.js';
+import { getModifiedStats } from '../../components/game/statusConditions.js';
 
 const POKEMON_ENTRIES = Object.entries(POKEMON_DATA);
 
@@ -25,13 +26,37 @@ export const TYPE_EFFECTIVENESS = {
   Steel: { Ice: 2, Rock: 2, Fire: 0.5, Water: 0.5, Electric: 0.5, Steel: 0.5 }
 };
 
+// Generate an Effectiveness Text from multiplier
+export function getEffectivenessText(effectiveness) {
+  if (effectiveness > 1) {
+    return " It's super effective!";
+  } else if (effectiveness < 1 && effectiveness > 0) {
+    return " It's not very effective...";
+  } else if (effectiveness === 0) {
+    return " It had no effect!";
+  }
+  return "";
+}
+
 // Calculate damage
 export function calculateDamage(move, attacker, defender) {
   // Base power based on move (simplified)
   const movePower = move.power || 40;
   
+  // Critical hit check (Gen 3-4: base 1/16 chance, 1.5x multiplier)
+  const critRoll = Math.random();
+  const critChance = 1 / 16;
+  const isCritical = critRoll < critChance;
+  const criticalMultiplier = isCritical ? 1.5 : 1;
+
+  // Get modified stats (e.g. Burn halves physical attack)
+  // Critical hits ignore burn's attack reduction
+  const attackerMods = isCritical
+    ? { attack: attacker.attack, speed: attacker.speed }
+    : (getModifiedStats(attacker) || { attack: attacker.attack, speed: attacker.speed });
+  
   // Attack/Defense ratio
-  const attackStat = move.category === 'physical' ? attacker.attack : attacker.spAttack;
+  const attackStat = move.category === 'physical' ? attackerMods.attack : attacker.spAttack;
   const defenseStat = move.category === 'physical' ? defender.defense : defender.spDefense;
   const safeDefenseStat = Math.max(1, defenseStat);
   
@@ -53,14 +78,19 @@ export function calculateDamage(move, attacker, defender) {
   // Random factor (85-100%)
   const random = 0.85 + Math.random() * 0.15;
   
-  // Damage formula
-  let damage = ((2 * level / 5 + 2) * movePower * (attackStat / safeDefenseStat) / 50 + 2) * stab * effectiveness * random;
+  let damage = ((2 * level / 5 + 2) * movePower * (attackStat / safeDefenseStat) / 50 + 2) * stab * effectiveness * criticalMultiplier * random;
+  damage = Math.max(1, Math.floor(damage));
 
   if (effectiveness === 0) {
-    return 0;
+    damage = 0;
   }
   
-  return Math.max(1, Math.floor(damage));
+  return {
+    damage,
+    effectiveness,
+    stab,
+    critical: isCritical,
+  };
 }
 
 // Calculate HP based on level and base stats
@@ -139,7 +169,12 @@ export function generateWildPokemon(pokemonData, level = null) {
     availableMoves.push(buildMove("Tackle", "Normal"));
   }
   
+  const uuid = (typeof crypto !== "undefined" && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
+  
   return {
+    uuid,
     id: pokemonId,
     number: pokemonNumber,
     name: pokemonData.Name,

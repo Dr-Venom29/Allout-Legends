@@ -20,6 +20,8 @@ import {
   performEnemyAttack,
   performPlayerMove,
 } from "./battleLogic";
+import { determineTurnOrder } from "./battleTurnOrder";
+import { buildMove } from "../../data/pokemon/moveData";
 import { canAct, applyEndOfTurnStatus } from "../game/statusConditions";
 import { calculateExpReward, addExperience } from "../game/experience";
 import {
@@ -188,26 +190,61 @@ export default function Battle({
     enemyHpRef.current = enemyHp;
   }, [enemyHp]);
 
+  // Pick a random move for the enemy (used before turn resolution)
+  const pickEnemyMove = () => {
+    if (!enemy) return buildMove("Tackle", "Normal");
+    const moves = Array.isArray(enemy.moves) && enemy.moves.length > 0
+      ? enemy.moves
+      : [buildMove("Tackle", "Normal")];
+    return moves[Math.floor(Math.random() * moves.length)];
+  };
+
+  // Execute one side's attack and return true if the defender fainted
+  const executeAttack = (attacker, move, isPlayerAttacking, currentEnemyHp, currentPlayerHp) => {
+    if (isPlayerAttacking) {
+      const result = performPlayerMove({
+        move,
+        playerPokemon: resolvedPlayerPokemon,
+        enemy,
+        enemyHp: currentEnemyHp,
+      });
+      return { ...result, side: "player" };
+    } else {
+      const result = performEnemyAttack(enemy, currentPlayerHp, resolvedPlayerPokemon);
+      return { ...result, side: "enemy" };
+    }
+  };
+
+  // Handle player fainted
+  const handlePlayerFainted = () => {
+    if (hasUsablePokemon(party, battlePartyIndex)) {
+      const currentPokemonName = resolvedPlayerPokemon.name;
+      setMessage(`${currentPokemonName} fainted!`);
+      setTimeout(() => {
+        setIsForcedSwitch(true);
+        setPhase("party-select");
+      }, 1000);
+    } else {
+      setMessage("You have no Pokémon left!");
+      setTimeout(() => finishBattle(), BATTLE_END_DELAY);
+    }
+  };
+
+  // Legacy wrapper — still used by RUN fail, BAG fail, and SWITCH
   const enemyAttack = () => {
     if (!enemy) return;
-    const result = performEnemyAttack(enemy, playerHpRef.current);
+    const result = performEnemyAttack(enemy, playerHpRef.current, resolvedPlayerPokemon);
     setPlayerHp(result.newHp);
     setMessage(result.message);
+    if (result.playerAfterStatus) {
+      setParty((prev) => {
+        const next = Array.isArray(prev) ? [...prev] : [];
+        next[battlePartyIndex] = result.playerAfterStatus;
+        return next;
+      });
+    }
     if (result.playerDefeated) {
-      // Current Pokémon fainted - check for other usable Pokémon
-      if (hasUsablePokemon(party, battlePartyIndex)) {
-        // Other Pokémon are available - force switch
-        const currentPokemonName = resolvedPlayerPokemon.name;
-        setMessage(`${currentPokemonName} fainted!`);
-        setTimeout(() => {
-          setIsForcedSwitch(true);
-          setPhase("party-select");
-        }, 1000);
-      } else {
-        // No other Pokémon available - player loses
-        setMessage("You have no Pokémon left!");
-        setTimeout(() => finishBattle(), BATTLE_END_DELAY);
-      }
+      handlePlayerFainted();
     }
   };
 
@@ -285,6 +322,13 @@ export default function Battle({
     const action = ACTIONS[idx];
 
     if (action === "FIGHT") {
+      const hasPP = resolvedPlayerPokemon.moves.some(m => m.currentPP > 0 || m.currentPP === null);
+      if (!hasPP) {
+        setMessage(`${resolvedPlayerPokemon.name} has no moves left!`);
+        setPhase("message");
+        setTimeout(() => handleMove(buildMove("Struggle")), 1200);
+        return;
+      }
       setPhase("fight");
       setMessage("Choose a move!");
       return;
@@ -457,159 +501,222 @@ export default function Battle({
     }
   };
 
-  const handleMove = (idx) => {
-    if (!enemy) return;
-    setSelectedMove(idx);
-    const move = resolvedPlayerPokemon.moves[idx];
+  // ── Victory sequence (EXP / evolution / move learning) ──
+  const handleVictory = () => {
+    setMessage(`${enemy.name} fainted! You won!`);
 
-    // Check if the player's Pokémon can act (sleep/paralysis/freeze)
-    const actCheck = canAct(resolvedPlayerPokemon);
-    if (!actCheck.canAct) {
-      // update party with any status changes (e.g., sleep decrement)
-      setParty((prev) => {
-        const next = Array.isArray(prev) ? [...prev] : [];
-        next[battlePartyIndex] = actCheck.pokemon;
-        return next;
-      });
-      setMessage(actCheck.message || "");
-      setTimeout(() => {
-        enemyAttack();
-        setPhase("action");
-        setSelectedAction(0);
-      }, STATUS_MOVE_DELAY);
+    const expReward = calculateExpReward(enemy);
+    const targetPokemon = (party && battlePartyIndex >= 0 && battlePartyIndex < party.length)
+      ? party[battlePartyIndex]
+      : playerPokemon;
+
+    if (!targetPokemon) {
+      setTimeout(() => finishBattle(), BATTLE_END_DELAY);
       return;
     }
 
-    // If actCheck updated the pokemon (woke up etc.), persist that
-    if (actCheck.pokemon && actCheck.pokemon !== resolvedPlayerPokemon) {
+    const resultExp = addExperience(targetPokemon, expReward);
+
+    if (battlePartyIndex >= 0 && battlePartyIndex < party.length) {
       setParty((prev) => {
         const next = Array.isArray(prev) ? [...prev] : [];
-        next[battlePartyIndex] = actCheck.pokemon;
+        next[battlePartyIndex] = resultExp.pokemon;
         return next;
       });
-      if (actCheck.message) setMessage(actCheck.message);
     }
 
-    const result = performPlayerMove({
-      move,
-      playerPokemon: resolvedPlayerPokemon,
-      enemy,
-      enemyHp,
-    });
+    setTimeout(() => {
+      setMessage(`${resultExp.pokemon.name} gained ${resultExp.expGained} EXP!`);
 
-    setMessage(result.message);
-
-    if (result.isStatusMove) {
-      setTimeout(() => {
-        setPhase("action");
-        setSelectedAction(0);
-        enemyAttack();
-      }, STATUS_MOVE_DELAY);
-      return;
-    }
-
-    // Apply damage
-    setEnemyHp(result.newHp);
-    // If result included an enemy object with status applied, update it
-    if (result.enemyAfterStatus) {
-      setEnemy(result.enemyAfterStatus);
-    }
-
-    if (result.enemyDefeated) {
-      setMessage(`${enemy.name} fainted! You won!`);
-
-      // Award EXP to the currently battling Pokémon
-      const expReward = calculateExpReward(enemy);
-
-      // Get the target pokemon from party at battlePartyIndex
-      const targetPokemon = (party && battlePartyIndex >= 0 && battlePartyIndex < party.length)
-        ? party[battlePartyIndex]
-        : playerPokemon;
-
-      if (!targetPokemon) {
-        setTimeout(() => finishBattle(), BATTLE_END_DELAY);
-        return;
-      }
-
-      const resultExp = addExperience(targetPokemon, expReward);
-
-      // Update party with the leveled-up pokemon
-      if (battlePartyIndex >= 0 && battlePartyIndex < party.length) {
-        setParty((prev) => {
-          const next = Array.isArray(prev) ? [...prev] : [];
-          next[battlePartyIndex] = resultExp.pokemon;
-          return next;
-        });
-      }
-
-      // Show messages in sequence: EXP → Evolution (if any) → Level-up (if no evolution) → Move learning (if any) → Exit
-      setTimeout(() => {
-        setMessage(`${resultExp.pokemon.name} gained ${resultExp.expGained} EXP!`);
-
-        if (resultExp.evolved) {
-          // Evolution sequence
+      if (resultExp.evolved) {
+        setTimeout(() => {
+          setMessage(`What? ${resultExp.previousName} is evolving!`);
           setTimeout(() => {
-            setMessage(`What? ${resultExp.previousName} is evolving!`);
-            setTimeout(() => {
-              setMessage(`Congratulations! Your ${resultExp.previousName} evolved into ${resultExp.evolvedName}!`);
-              setTimeout(() => {
-                if (resultExp.pendingMoveLearning) {
-                  finishBattle({
-                    pendingMoveLearning: {
-                      ...resultExp.pendingMoveLearning,
-                      pokemon: resultExp.pokemon,
-                    },
-                  });
-                } else {
-                  finishBattle();
-                }
-              }, BATTLE_END_DELAY);
-            }, 1200);
-          }, 1000);
-        } else if (resultExp.leveledUp) {
-          // Level-up message (only if not evolving)
-          setTimeout(() => {
-            setMessage(`${resultExp.pokemon.name} grew to Level ${resultExp.newLevel}!`);
+            setMessage(`Congratulations! Your ${resultExp.previousName} evolved into ${resultExp.evolvedName}!`);
             setTimeout(() => {
               if (resultExp.pendingMoveLearning) {
-                finishBattle({
-                  pendingMoveLearning: {
-                    ...resultExp.pendingMoveLearning,
-                    pokemon: resultExp.pokemon,
-                  },
-                });
+                finishBattle({ pendingMoveLearning: { ...resultExp.pendingMoveLearning, pokemon: resultExp.pokemon } });
               } else {
                 finishBattle();
               }
             }, BATTLE_END_DELAY);
-          }, 900);
-        } else if (resultExp.pendingMoveLearning) {
-          // Move learning without level-up
+          }, 1200);
+        }, 1000);
+      } else if (resultExp.leveledUp) {
+        setTimeout(() => {
+          setMessage(`${resultExp.pokemon.name} grew to Level ${resultExp.newLevel}!`);
           setTimeout(() => {
-            finishBattle({
-              pendingMoveLearning: {
-                ...resultExp.pendingMoveLearning,
-                pokemon: resultExp.pokemon,
-              },
-            });
+            if (resultExp.pendingMoveLearning) {
+              finishBattle({ pendingMoveLearning: { ...resultExp.pendingMoveLearning, pokemon: resultExp.pokemon } });
+            } else {
+              finishBattle();
+            }
           }, BATTLE_END_DELAY);
-        } else {
-          // Just exit
-          setTimeout(() => finishBattle(), BATTLE_END_DELAY);
-        }
-      }, 800);
+        }, 900);
+      } else if (resultExp.pendingMoveLearning) {
+        setTimeout(() => {
+          finishBattle({ pendingMoveLearning: { ...resultExp.pendingMoveLearning, pokemon: resultExp.pokemon } });
+        }, BATTLE_END_DELAY);
+      } else {
+        setTimeout(() => finishBattle(), BATTLE_END_DELAY);
+      }
+    }, 800);
+  };
 
+  // ── Main move handler — sequential turn resolution ──
+  const handleMove = (idxOrMove) => {
+    if (!enemy) return;
+    const isIndex = typeof idxOrMove === 'number';
+    if (isIndex) setSelectedMove(idxOrMove);
+    const playerMove = isIndex ? resolvedPlayerPokemon.moves[idxOrMove] : idxOrMove;
+    const enemyMove = pickEnemyMove();
+
+    // Determine turn order based on priority → speed → coin-flip
+    const turnOrder = determineTurnOrder(
+      resolvedPlayerPokemon,
+      enemy,
+      playerMove,
+      enemyMove
+    );
+
+    // Lock out further input
+    setPhase("message");
+
+    // ── Execute first actor ──
+    const executeFirstTurn = () => {
+      if (turnOrder.first === "player") {
+        return executePlayerTurn(playerMove, enemyMove);
+      } else {
+        return executeEnemyTurn(enemyMove, playerMove);
+      }
+    };
+
+    // ── Player turn execution ──
+    const executePlayerTurn = (pMove, eMove) => {
+      // Check if player can act
+      const actCheck = canAct(resolvedPlayerPokemon);
+      if (!actCheck.canAct) {
+        setParty((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          next[battlePartyIndex] = actCheck.pokemon;
+          return next;
+        });
+        setMessage(actCheck.message || "");
+        return { playerActed: false, playerSkipped: true };
+      }
+
+      if (actCheck.pokemon && actCheck.pokemon !== resolvedPlayerPokemon) {
+        setParty((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          next[battlePartyIndex] = actCheck.pokemon;
+          return next;
+        });
+      }
+
+      const result = performPlayerMove({
+        move: pMove,
+        playerPokemon: actCheck.pokemon || resolvedPlayerPokemon,
+        enemy,
+        enemyHp: enemyHpRef.current,
+      });
+
+      // Update party with PP deduction from attackerAfterMove
+      if (result.attackerAfterMove) {
+        setParty((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          next[battlePartyIndex] = result.attackerAfterMove;
+          return next;
+        });
+      }
+
+      setMessage(result.message);
+      if (result.enemyAfterStatus) setEnemy(result.enemyAfterStatus);
+
+      if (!result.isStatusMove) {
+        setEnemyHp(result.newHp);
+        enemyHpRef.current = result.newHp;
+      }
+
+      return {
+        playerActed: true,
+        playerSkipped: false,
+        enemyFainted: result.enemyDefeated || false,
+      };
+    };
+
+    // ── Enemy turn execution ──
+    const executeEnemyTurn = (eMove) => {
+      if (!enemy) return { enemyActed: false };
+
+      // Check if enemy can act
+      const actCheck = canAct(enemy);
+      if (!actCheck.canAct) {
+        if (actCheck.pokemon) setEnemy(actCheck.pokemon);
+        setMessage(actCheck.message || "");
+        return { enemyActed: false, enemySkipped: true };
+      }
+      if (actCheck.pokemon && actCheck.pokemon !== enemy) {
+        setEnemy(actCheck.pokemon);
+      }
+
+      const result = performEnemyAttack(enemy, playerHpRef.current, resolvedPlayerPokemon);
+      setPlayerHp(result.newHp);
+      playerHpRef.current = result.newHp;
+      setMessage(result.message);
+
+      if (result.playerAfterStatus) {
+        setParty((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          next[battlePartyIndex] = result.playerAfterStatus;
+          return next;
+        });
+      }
+
+      return {
+        enemyActed: true,
+        enemySkipped: false,
+        playerFainted: result.playerDefeated || false,
+      };
+    };
+
+    // ── Sequenced turn resolution ──
+    const firstResult = executeFirstTurn();
+
+    // Check if first actor KO'd defender
+    if (turnOrder.first === "player" && firstResult.enemyFainted) {
+      handleVictory();
+      return;
+    }
+    if (turnOrder.first === "enemy" && firstResult.playerFainted) {
+      handlePlayerFainted();
       return;
     }
 
+    // ── Execute second actor after delay ──
     setTimeout(() => {
-      enemyAttack();
-      // After enemy's attack, apply end-of-turn status effects
+      let secondResult;
+      if (turnOrder.second === "player") {
+        secondResult = executePlayerTurn(playerMove, enemyMove);
+      } else {
+        secondResult = executeEnemyTurn(enemyMove);
+      }
+
+      // Check if second actor KO'd defender
+      if (turnOrder.second === "player" && secondResult.enemyFainted) {
+        handleVictory();
+        return;
+      }
+      if (turnOrder.second === "enemy" && secondResult.playerFainted) {
+        handlePlayerFainted();
+        return;
+      }
+
+      // ── End-of-turn statuses ──
       setTimeout(() => {
         processEndOfTurnStatuses();
+        setPhase("action");
+        setSelectedAction(0);
       }, 300);
-      setPhase("action");
-      setSelectedAction(0);
     }, PLAYER_ATTACK_DELAY);
   };
 
@@ -727,11 +834,14 @@ export default function Battle({
             {phase === "fight" &&
               resolvedPlayerPokemon.moves.map((move, i) => (
                 <button
-                  key={move.name}
+                  key={`${move.name}-${i}`}
                   className={`battle-btn${selectedMove === i ? " selected" : ""}`}
-                  onClick={() => handleMove(i)}
+                  onClick={() => move.currentPP !== 0 && handleMove(i)}
+                  disabled={move.currentPP === 0}
+                  style={{ display: 'flex', justifyContent: 'space-between' }}
                 >
-                  {move.name}
+                  <span>{move.name}</span>
+                  {move.currentPP !== null && <span>{move.currentPP}/{move.maxPP}</span>}
                 </button>
               ))}
 

@@ -59,8 +59,14 @@ export function normalizePokemon(pokemon) {
   const nextLevelExp = Number.isFinite(pokemon.nextLevelExp)
     ? pokemon.nextLevelExp
     : (Number.isFinite(pokemon.xpToNext) ? pokemon.xpToNext : getExpForLevel(level));
+    
+  const uuid = pokemon.uuid || ((typeof crypto !== "undefined" && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36));
+
   return {
     ...pokemon,
+    uuid,
     level,
     exp,
     nextLevelExp,

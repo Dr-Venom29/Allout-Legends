@@ -15,6 +15,14 @@ export function applyStatus(pokemon, condition) {
   // Do nothing if already has a status
   if (pokemon.status && pokemon.status.condition) return pokemon;
 
+  // Type-based immunities
+  const types = [pokemon.type1, pokemon.type2].filter(Boolean).map(t => t.toLowerCase());
+
+  if (condition === STATUS.BURN && types.includes("fire")) return pokemon;
+  if (condition === STATUS.PARALYSIS && types.includes("electric")) return pokemon;
+  if (condition === STATUS.POISON && (types.includes("poison") || types.includes("steel"))) return pokemon;
+  if (condition === STATUS.FREEZE && types.includes("ice")) return pokemon;
+
   let statusObj = { condition };
 
   if (condition === STATUS.SLEEP) {
