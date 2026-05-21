@@ -79,8 +79,8 @@ export function addExperience(pokemonIn, amount) {
       pokemon: pokemonIn,
       expGained: 0,
       leveledUp: false,
-      levelsGained: 0,
       newLevel: pokemonIn?.level ?? null,
+      pendingMoves: [],
     };
   }
 
@@ -94,6 +94,7 @@ export function addExperience(pokemonIn, amount) {
       leveledUp: false,
       levelsGained: 0,
       newLevel: pokemon.level,
+      pendingMoves: [],
     };
   }
 
@@ -103,7 +104,7 @@ export function addExperience(pokemonIn, amount) {
   let leveledUp = false;
   let levelsGained = 0;
   let learnedMoveNames = [];
-  let pendingMoveLearning = null;
+  let allPendingMoves = [];
 
   while (pokemon.exp >= getNextLevelExp(pokemon) && pokemon.level < MAX_LEVEL) {
     // Increase level
@@ -117,8 +118,8 @@ export function addExperience(pokemonIn, amount) {
       if (moveResult.learnedMoves.length > 0) {
         learnedMoveNames.push(...moveResult.learnedMoves);
       }
-      if (moveResult.pendingMoves.length > 0 && !pendingMoveLearning) {
-        pendingMoveLearning = moveResult.pendingMoves[0];
+      if (moveResult.pendingMoves.length > 0) {
+        allPendingMoves.push(...moveResult.pendingMoves);
       }
     }
 
@@ -154,7 +155,7 @@ export function addExperience(pokemonIn, amount) {
     previousName: evolved ? previousName : null,
     evolvedName: evolved ? evolvedName : null,
     learnedMoves: learnedMoveNames,
-    pendingMoveLearning: pendingMoveLearning,
+    pendingMoves: allPendingMoves,
   };
 }
 

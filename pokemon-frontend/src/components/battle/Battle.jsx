@@ -23,7 +23,11 @@ import {
 import { determineTurnOrder } from "./battleTurnOrder";
 import { buildMove } from "../../data/pokemon/moveData";
 import { canAct, applyEndOfTurnStatus } from "../game/statusConditions";
+import { buildTurnEvents } from "./engine/buildTurnEvents";
+import { useBattleQueue } from "./hooks/useBattleQueue";
+import { processProgression } from "./engine/processProgression";
 import { calculateExpReward, addExperience } from "../game/experience";
+import { replaceMove } from "../game/moveLearning";
 import {
   attemptCapture,
   storeCapturedPokemon,
@@ -143,8 +147,53 @@ export default function Battle({
     initialWildPokemon ? (initialWildPokemon.currentHp ?? initialWildPokemon.hp) : 0
   );
   const [playerHp, setPlayerHp] = useState(resolvedPlayerPokemon.currentHp ?? resolvedPlayerPokemon.hp);
-  const playerHpRef = useRef(playerHp);
-  const enemyHpRef = useRef(enemyHp);
+  
+  // Queue Orchestrator Hook
+  const {
+    startQueue,
+    resumeQueue,
+    queuePaused,
+    pauseReason,
+    pauseData: pendingMoveData,
+    mutateProgressionUpdates,
+  } = useBattleQueue({
+    setMessage,
+    setPlayerHp: (hp) => {
+      setPlayerHp(hp);
+      playerHpRef.current = hp;
+    },
+    setEnemyHp: (hp) => {
+      setEnemyHp(hp);
+      enemyHpRef.current = hp;
+    },
+    onFaint: () => {},
+    onEndBattle: () => {},
+    onQueueComplete: (events, progressionUpdates) => {
+      // 1. Commit Persistent Save Data NOW that animation is entirely finished
+      if (progressionUpdates && progressionUpdates.playerPokemon) {
+        setParty((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          next[battlePartyIndex] = progressionUpdates.playerPokemon;
+          return next;
+        });
+      }
+
+      // 2. Determine next phase
+      const didWin = events.some(e => e.type === "END_BATTLE" && e.payload?.reason === "win");
+      const didLose = events.some(e => e.type === "END_BATTLE" && e.payload?.reason === "lose");
+
+      if (didWin) {
+        setTimeout(() => finishBattle(), BATTLE_END_DELAY);
+      } else if (didLose) {
+        handlePlayerFainted();
+      } else {
+        // Revert to action phase
+        setPhase("action");
+        setSelectedAction(0);
+      }
+    }
+  });
+
   const [message, setMessage] = useState(
     initialWildPokemon
       ? `A wild ${initialWildPokemon.name} (Lv.${initialWildPokemon.level}) appeared!`
@@ -501,223 +550,73 @@ export default function Battle({
     }
   };
 
-  // ── Victory sequence (EXP / evolution / move learning) ──
-  const handleVictory = () => {
-    setMessage(`${enemy.name} fainted! You won!`);
+  // ── Victory sequence removed - Engine handles it now ──
 
-    const expReward = calculateExpReward(enemy);
-    const targetPokemon = (party && battlePartyIndex >= 0 && battlePartyIndex < party.length)
-      ? party[battlePartyIndex]
-      : playerPokemon;
+  const handleMoveReplacement = (replaceIndex) => {
+    if (!pendingMoveData) return;
 
-    if (!targetPokemon) {
-      setTimeout(() => finishBattle(), BATTLE_END_DELAY);
-      return;
-    }
-
-    const resultExp = addExperience(targetPokemon, expReward);
-
-    if (battlePartyIndex >= 0 && battlePartyIndex < party.length) {
-      setParty((prev) => {
-        const next = Array.isArray(prev) ? [...prev] : [];
-        next[battlePartyIndex] = resultExp.pokemon;
-        return next;
+    if (replaceIndex >= 0) {
+      // Actually replace it in the progressionUpdates
+      mutateProgressionUpdates((currentProg) => {
+        const updated = replaceMove(currentProg.playerPokemon, replaceIndex, pendingMoveData.newMove);
+        return { ...currentProg, playerPokemon: updated };
       });
     }
-
-    setTimeout(() => {
-      setMessage(`${resultExp.pokemon.name} gained ${resultExp.expGained} EXP!`);
-
-      if (resultExp.evolved) {
-        setTimeout(() => {
-          setMessage(`What? ${resultExp.previousName} is evolving!`);
-          setTimeout(() => {
-            setMessage(`Congratulations! Your ${resultExp.previousName} evolved into ${resultExp.evolvedName}!`);
-            setTimeout(() => {
-              if (resultExp.pendingMoveLearning) {
-                finishBattle({ pendingMoveLearning: { ...resultExp.pendingMoveLearning, pokemon: resultExp.pokemon } });
-              } else {
-                finishBattle();
-              }
-            }, BATTLE_END_DELAY);
-          }, 1200);
-        }, 1000);
-      } else if (resultExp.leveledUp) {
-        setTimeout(() => {
-          setMessage(`${resultExp.pokemon.name} grew to Level ${resultExp.newLevel}!`);
-          setTimeout(() => {
-            if (resultExp.pendingMoveLearning) {
-              finishBattle({ pendingMoveLearning: { ...resultExp.pendingMoveLearning, pokemon: resultExp.pokemon } });
-            } else {
-              finishBattle();
-            }
-          }, BATTLE_END_DELAY);
-        }, 900);
-      } else if (resultExp.pendingMoveLearning) {
-        setTimeout(() => {
-          finishBattle({ pendingMoveLearning: { ...resultExp.pendingMoveLearning, pokemon: resultExp.pokemon } });
-        }, BATTLE_END_DELAY);
-      } else {
-        setTimeout(() => finishBattle(), BATTLE_END_DELAY);
-      }
-    }, 800);
+    
+    // Resume queue!
+    resumeQueue();
   };
 
   // ── Main move handler — sequential turn resolution ──
-  const handleMove = (idxOrMove) => {
+  const handleMove = async (idxOrMove) => {
     if (!enemy) return;
     const isIndex = typeof idxOrMove === 'number';
     if (isIndex) setSelectedMove(idxOrMove);
     const playerMove = isIndex ? resolvedPlayerPokemon.moves[idxOrMove] : idxOrMove;
     const enemyMove = pickEnemyMove();
 
-    // Determine turn order based on priority → speed → coin-flip
-    const turnOrder = determineTurnOrder(
-      resolvedPlayerPokemon,
-      enemy,
-      playerMove,
-      enemyMove
-    );
-
-    // Lock out further input
     setPhase("message");
 
-    // ── Execute first actor ──
-    const executeFirstTurn = () => {
-      if (turnOrder.first === "player") {
-        return executePlayerTurn(playerMove, enemyMove);
-      } else {
-        return executeEnemyTurn(enemyMove, playerMove);
-      }
+    const stateSnapshot = {
+      playerPokemon: resolvedPlayerPokemon,
+      enemy,
+      playerMove,
+      enemyMove,
     };
 
-    // ── Player turn execution ──
-    const executePlayerTurn = (pMove, eMove) => {
-      // Check if player can act
-      const actCheck = canAct(resolvedPlayerPokemon);
-      if (!actCheck.canAct) {
-        setParty((prev) => {
-          const next = Array.isArray(prev) ? [...prev] : [];
-          next[battlePartyIndex] = actCheck.pokemon;
-          return next;
-        });
-        setMessage(actCheck.message || "");
-        return { playerActed: false, playerSkipped: true };
-      }
+    // 1. Engine creates deterministic queue instantly
+    const { events, updatedState } = buildTurnEvents(stateSnapshot);
+    let finalEvents = [...events];
+    let finalProgressionUpdates = null;
 
-      if (actCheck.pokemon && actCheck.pokemon !== resolvedPlayerPokemon) {
-        setParty((prev) => {
-          const next = Array.isArray(prev) ? [...prev] : [];
-          next[battlePartyIndex] = actCheck.pokemon;
-          return next;
-        });
-      }
+    // 2. If won, compute ALL progression instantly too!
+    const didWin = events.some(e => e.type === "END_BATTLE" && e.reason === "win");
+    if (didWin) {
+      // Remove END_BATTLE event since progression queue will take over the ending sequence
+      finalEvents = finalEvents.filter(e => e.type !== "END_BATTLE");
+      
+      const { progressionQueue, progressionUpdates } = processProgression(
+        updatedState.playerPokemon,
+        updatedState.enemy
+      );
+      finalEvents = [...finalEvents, ...progressionQueue, { type: "END_BATTLE", reason: "win" }];
+      finalProgressionUpdates = progressionUpdates;
+    }
 
-      const result = performPlayerMove({
-        move: pMove,
-        playerPokemon: actCheck.pokemon || resolvedPlayerPokemon,
-        enemy,
-        enemyHp: enemyHpRef.current,
+    // 3. Update battle-local temporary states immediately (like PP drops)
+    if (updatedState.playerPokemon && !didWin) {
+      setParty((prev) => {
+        const next = Array.isArray(prev) ? [...prev] : [];
+        next[battlePartyIndex] = updatedState.playerPokemon;
+        return next;
       });
-
-      // Update party with PP deduction from attackerAfterMove
-      if (result.attackerAfterMove) {
-        setParty((prev) => {
-          const next = Array.isArray(prev) ? [...prev] : [];
-          next[battlePartyIndex] = result.attackerAfterMove;
-          return next;
-        });
-      }
-
-      setMessage(result.message);
-      if (result.enemyAfterStatus) setEnemy(result.enemyAfterStatus);
-
-      if (!result.isStatusMove) {
-        setEnemyHp(result.newHp);
-        enemyHpRef.current = result.newHp;
-      }
-
-      return {
-        playerActed: true,
-        playerSkipped: false,
-        enemyFainted: result.enemyDefeated || false,
-      };
-    };
-
-    // ── Enemy turn execution ──
-    const executeEnemyTurn = (eMove) => {
-      if (!enemy) return { enemyActed: false };
-
-      // Check if enemy can act
-      const actCheck = canAct(enemy);
-      if (!actCheck.canAct) {
-        if (actCheck.pokemon) setEnemy(actCheck.pokemon);
-        setMessage(actCheck.message || "");
-        return { enemyActed: false, enemySkipped: true };
-      }
-      if (actCheck.pokemon && actCheck.pokemon !== enemy) {
-        setEnemy(actCheck.pokemon);
-      }
-
-      const result = performEnemyAttack(enemy, playerHpRef.current, resolvedPlayerPokemon);
-      setPlayerHp(result.newHp);
-      playerHpRef.current = result.newHp;
-      setMessage(result.message);
-
-      if (result.playerAfterStatus) {
-        setParty((prev) => {
-          const next = Array.isArray(prev) ? [...prev] : [];
-          next[battlePartyIndex] = result.playerAfterStatus;
-          return next;
-        });
-      }
-
-      return {
-        enemyActed: true,
-        enemySkipped: false,
-        playerFainted: result.playerDefeated || false,
-      };
-    };
-
-    // ── Sequenced turn resolution ──
-    const firstResult = executeFirstTurn();
-
-    // Check if first actor KO'd defender
-    if (turnOrder.first === "player" && firstResult.enemyFainted) {
-      handleVictory();
-      return;
     }
-    if (turnOrder.first === "enemy" && firstResult.playerFainted) {
-      handlePlayerFainted();
-      return;
+    if (updatedState.enemy) {
+      setEnemy(updatedState.enemy);
     }
 
-    // ── Execute second actor after delay ──
-    setTimeout(() => {
-      let secondResult;
-      if (turnOrder.second === "player") {
-        secondResult = executePlayerTurn(playerMove, enemyMove);
-      } else {
-        secondResult = executeEnemyTurn(enemyMove);
-      }
-
-      // Check if second actor KO'd defender
-      if (turnOrder.second === "player" && secondResult.enemyFainted) {
-        handleVictory();
-        return;
-      }
-      if (turnOrder.second === "enemy" && secondResult.playerFainted) {
-        handlePlayerFainted();
-        return;
-      }
-
-      // ── End-of-turn statuses ──
-      setTimeout(() => {
-        processEndOfTurnStatuses();
-        setPhase("action");
-        setSelectedAction(0);
-      }, 300);
-    }, PLAYER_ATTACK_DELAY);
+    // 4. Start Queue via Orchestrator Hook!
+    await startQueue(finalEvents, finalProgressionUpdates);
   };
 
   if (!enemy) {
@@ -879,6 +778,32 @@ export default function Battle({
                   Back
                 </button>
               </>
+            )}
+
+            {queuePaused && pauseReason === "MOVE_LEARN" && pendingMoveData && (
+              <div className="move-replacement-modal">
+                <div style={{ padding: 8, fontSize: '0.9rem', color: '#ffd800' }}>
+                  Select a move to forget, or cancel.
+                </div>
+                {pendingMoveData.currentMoves.map((m, idx) => (
+                  <button
+                    key={`${m.name}-${idx}`}
+                    className="battle-btn"
+                    onClick={() => handleMoveReplacement(idx)}
+                    style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}
+                  >
+                    <span>{m.name}</span>
+                    <span>{m.type}</span>
+                  </button>
+                ))}
+                <button
+                  className="battle-btn"
+                  onClick={() => handleMoveReplacement(-1)}
+                  style={{ color: '#ff6b6b' }}
+                >
+                  Cancel Learning {pendingMoveData.newMove.name}
+                </button>
+              </div>
             )}
           </div>
         </div>

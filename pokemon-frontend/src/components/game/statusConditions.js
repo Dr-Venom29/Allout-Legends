@@ -8,6 +8,11 @@ export const STATUS = {
   FREEZE: "freeze",
 };
 
+export const VOLATILE_STATUS = {
+  CONFUSION: "confusion",
+  FLINCH: "flinch",
+};
+
 export function applyStatus(pokemon, condition) {
   if (!pokemon) return pokemon;
   if (!condition) return pokemon;
