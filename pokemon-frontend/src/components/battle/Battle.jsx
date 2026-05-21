@@ -3,7 +3,6 @@ import "./Battle.css";
 
 import {
   ACTIONS,
-  STATUS_MOVE_DELAY,
   PLAYER_ATTACK_DELAY,
   RUN_SUCCESS_DELAY,
   BATTLE_END_DELAY,
@@ -14,19 +13,11 @@ import {
   getHpClass,
 } from "./battleUtils";
 
-import {
-  createWildBattle,
-  tryRun,
-  performEnemyAttack,
-  performPlayerMove,
-} from "./battleLogic";
-import { determineTurnOrder } from "./battleTurnOrder";
+import { createWildBattle, tryRun, performEnemyAttack } from "./battleLogic";
 import { buildMove } from "../../data/pokemon/moveData";
-import { canAct, applyEndOfTurnStatus } from "../game/statusConditions";
 import { buildTurnEvents } from "./engine/buildTurnEvents";
 import { useBattleQueue } from "./hooks/useBattleQueue";
 import { processProgression } from "./engine/processProgression";
-import { calculateExpReward, addExperience } from "../game/experience";
 import { replaceMove } from "../game/moveLearning";
 import {
   attemptCapture,
@@ -140,14 +131,25 @@ export default function Battle({
     () => createWildBattle(mapId),
     [mapId]
   );
-
-  // eslint-disable-next-line no-unused-vars -- reserved for future battle effects
   const [enemy, setEnemy] = useState(initialWildPokemon);
   const [enemyHp, setEnemyHp] = useState(
     initialWildPokemon ? (initialWildPokemon.currentHp ?? initialWildPokemon.hp) : 0
   );
   const [playerHp, setPlayerHp] = useState(resolvedPlayerPokemon.currentHp ?? resolvedPlayerPokemon.hp);
   
+  const playerHpRef = useRef(playerHp);
+  const enemyHpRef = useRef(enemyHp);
+  
+  const [message, setMessage] = useState(
+    initialWildPokemon
+      ? `A wild ${initialWildPokemon.name} (Lv.${initialWildPokemon.level}) appeared!`
+      : "Error loading Pokémon!"
+  );
+  const [selectedAction, setSelectedAction] = useState(0);
+  const [selectedMove, setSelectedMove] = useState(0);
+  const [phase, setPhase] = useState("action");
+  const [isForcedSwitch, setIsForcedSwitch] = useState(false);
+
   // Queue Orchestrator Hook
   const {
     startQueue,
@@ -194,16 +196,6 @@ export default function Battle({
     }
   });
 
-  const [message, setMessage] = useState(
-    initialWildPokemon
-      ? `A wild ${initialWildPokemon.name} (Lv.${initialWildPokemon.level}) appeared!`
-      : "Error loading Pokémon!"
-  );
-  const [selectedAction, setSelectedAction] = useState(0);
-  const [selectedMove, setSelectedMove] = useState(0);
-  const [phase, setPhase] = useState("action");
-  const [isForcedSwitch, setIsForcedSwitch] = useState(false);
-
   const finishBattle = (opts) => {
     // Persist current battle HP back to the party slot (if applicable) before exiting
     if (party && battlePartyIndex >= 0 && battlePartyIndex < party.length) {
@@ -249,22 +241,6 @@ export default function Battle({
   };
 
   // Execute one side's attack and return true if the defender fainted
-  const executeAttack = (attacker, move, isPlayerAttacking, currentEnemyHp, currentPlayerHp) => {
-    if (isPlayerAttacking) {
-      const result = performPlayerMove({
-        move,
-        playerPokemon: resolvedPlayerPokemon,
-        enemy,
-        enemyHp: currentEnemyHp,
-      });
-      return { ...result, side: "player" };
-    } else {
-      const result = performEnemyAttack(enemy, currentPlayerHp, resolvedPlayerPokemon);
-      return { ...result, side: "enemy" };
-    }
-  };
-
-  // Handle player fainted
   const handlePlayerFainted = () => {
     if (hasUsablePokemon(party, battlePartyIndex)) {
       const currentPokemonName = resolvedPlayerPokemon.name;
@@ -294,75 +270,6 @@ export default function Battle({
     }
     if (result.playerDefeated) {
       handlePlayerFainted();
-    }
-  };
-
-  const processEndOfTurnStatuses = () => {
-    // Apply end-of-turn statuses to player and enemy
-    // Player
-    const partyPokemon = party && party[battlePartyIndex];
-    if (partyPokemon) {
-      const currentHp = playerHpRef.current;
-      const current = { ...partyPokemon, hp: currentHp, currentHp: currentHp };
-      const playerEOT = applyEndOfTurnStatus(current);
-      if (playerEOT.damage > 0) {
-        setMessage((prev) => playerEOT.message || prev);
-      }
-      if (playerEOT.pokemon) {
-        setParty((prev) => {
-          const next = Array.isArray(prev) ? [...prev] : [];
-          // Ensure we persist both hp and currentHp from the battle state
-          next[battlePartyIndex] = {
-            ...playerEOT.pokemon,
-            hp: playerEOT.pokemon.hp ?? playerEOT.pokemon.currentHp ?? currentHp,
-            currentHp: playerEOT.pokemon.currentHp ?? playerEOT.pokemon.hp ?? currentHp,
-          };
-          return next;
-        });
-        setPlayerHp(playerEOT.pokemon.currentHp ?? playerEOT.pokemon.hp ?? 0);
-      }
-      if (playerEOT.fainted) {
-        if (hasUsablePokemon(party, battlePartyIndex)) {
-          setTimeout(() => {
-            setIsForcedSwitch(true);
-            setPhase("party-select");
-          }, 800);
-        } else {
-          setMessage("You have no Pokémon left!");
-            setTimeout(() => finishBattle(), BATTLE_END_DELAY);
-        }
-      }
-    }
-
-    // Enemy
-    if (enemy) {
-      const currentEnemy = { ...enemy, hp: enemyHpRef.current, currentHp: enemyHpRef.current };
-      const enemyEOT = applyEndOfTurnStatus(currentEnemy);
-      if (enemyEOT.damage > 0) {
-        setMessage((prev) => enemyEOT.message || prev);
-      }
-      if (enemyEOT.pokemon) {
-        setEnemy(enemyEOT.pokemon);
-        setEnemyHp(enemyEOT.pokemon.currentHp ?? enemyEOT.pokemon.hp ?? 0);
-      }
-      if (enemyEOT.fainted) {
-        setMessage(`${enemy.name} fainted! You won!`);
-        const expReward = calculateExpReward(enemy);
-        const targetPokemon = (party && battlePartyIndex >= 0 && battlePartyIndex < party.length)
-          ? party[battlePartyIndex]
-          : playerPokemon;
-        if (targetPokemon) {
-          const resultExp = addExperience(targetPokemon, expReward);
-          if (battlePartyIndex >= 0 && battlePartyIndex < party.length) {
-            setParty((prev) => {
-              const next = Array.isArray(prev) ? [...prev] : [];
-              next[battlePartyIndex] = resultExp.pokemon;
-              return next;
-            });
-          }
-        }
-          setTimeout(() => finishBattle(), BATTLE_END_DELAY);
-      }
     }
   };
 

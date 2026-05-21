@@ -1,9 +1,10 @@
-import { createTextEvent, createDamageEvent, createWaitEvent, createFaintEvent, createEndBattleEvent } from "../events/createEvent";
+import { createTextEvent, createWaitEvent, createFaintEvent, createEndBattleEvent } from "../events/createEvent";
 import { calculateDamage, getEffectivenessText } from "../../../data/pokemon/battleHelpers";
 import { determineTurnOrder } from "../battleTurnOrder";
 import { checkMoveHit } from "../battleAccuracy";
-import { processPreTurnStatuses } from "./processPreTurnStatuses";
-import { processEndTurnStatuses } from "./processEndTurnStatuses";
+import { applyDamage, DAMAGE_REASONS } from "./applyDamage";
+import { STATUS_EFFECTS } from "./statusRegistry";
+import { assertValidBattleState } from "./engineValidation";
 import { ReactionContext } from "./ReactionContext";
 import { PHASES } from "./triggerPhases";
 import { WEATHER_EFFECTS } from "./weatherRegistry";
@@ -16,6 +17,9 @@ import { WEATHER_EFFECTS } from "./weatherRegistry";
  * @returns {Object} { events: Array, updatedState: Object }
  */
 export function buildTurnEvents(state) {
+  // Guard the engine from invalid state injection
+  assertValidBattleState(state);
+
   // Initialize Reaction Context
   const context = new ReactionContext({
     playerPokemon: { ...state.playerPokemon },
@@ -28,7 +32,7 @@ export function buildTurnEvents(state) {
   const { playerPokemon, enemy, playerMove, enemyMove } = context.state;
 
   // Determine order
-  const turnOrder = determineTurnOrder(playerPokemon, enemy, playerMove, enemyMove);
+  const turnOrder = determineTurnOrder(playerPokemon, enemy, playerMove, enemyMove, context.rng);
 
   const checkFaint = () => {
     if (enemy.currentHp <= 0) {
@@ -56,13 +60,25 @@ export function buildTurnEvents(state) {
     const targetTag = isPlayerAttacking ? "enemy" : "player";
     const attackerTag = isPlayerAttacking ? "player" : "enemy";
 
-    // 1. PRE_MOVE Hooks (For later: Status interruptions, flinching, etc.)
-    // For now, legacy status check (we will migrate this to Phase hooks eventually)
-    // Legacy context compatibility object:
-    const legacyContext = { queue: [], player: playerPokemon, enemy: enemy };
-    const isBlocked = processPreTurnStatuses(legacyContext, attacker, attackerTag);
-    context.events.push(...legacyContext.queue); // Temporary bridge
-    if (isBlocked) return;
+    // 1. PRE_MOVE Hooks (Statuses, flinching, etc.)
+    context.executionBlocked = false;
+    context.dispatchPhase(PHASES.PRE_MOVE, (ctx, pCtx) => {
+      // Evaluate Status Effects
+      const statusCondition = attacker.status?.condition;
+      if (statusCondition && STATUS_EFFECTS[statusCondition]?.[PHASES.PRE_MOVE]) {
+        STATUS_EFFECTS[statusCondition][PHASES.PRE_MOVE](ctx, pCtx);
+      }
+      
+      // Evaluate Volatiles (Confusion)
+      const volatileStatuses = attacker.volatileStatuses || [];
+      for (const vStatus of volatileStatuses) {
+        if (STATUS_EFFECTS[vStatus.condition]?.[PHASES.PRE_MOVE]) {
+          STATUS_EFFECTS[vStatus.condition][PHASES.PRE_MOVE](ctx, pCtx);
+        }
+      }
+    }, { attacker, targetTag, attackerTag });
+
+    if (context.executionBlocked) return;
 
     // 2. Execute Move 
     context.pushCoreEvent(createTextEvent(`${attacker.name} used ${move.name}!`));
@@ -74,7 +90,7 @@ export function buildTurnEvents(state) {
     }
 
     // Accuracy Check
-    const hitCheck = checkMoveHit(move, attacker, defender);
+    const hitCheck = checkMoveHit(move, attacker, defender, context.rng);
     if (!hitCheck.hit) {
       context.pushCoreEvent(createTextEvent(`${attacker.name}'s attack missed!`));
       context.pushCoreEvent(createWaitEvent(800));
@@ -98,19 +114,19 @@ export function buildTurnEvents(state) {
         move, 
         attacker, 
         defender, 
-        context.damageModifiers.powerMultiplier
+        context.damageModifiers.powerMultiplier,
+        context.rng
       );
       
-      const prevHp = defender.currentHp;
-      const newHp = Math.max(0, prevHp - damage);
+      const damageEvents = applyDamage({
+        context,
+        target: defender,
+        targetTag: targetTag,
+        amount: damage,
+        reason: DAMAGE_REASONS.MOVE
+      });
       
-      defender.currentHp = newHp;
-
-      context.pushCoreEvent(createDamageEvent({
-        target: targetTag,
-        previousHp: prevHp,
-        newHp: newHp,
-      }));
+      context.pushCoreEvent(...damageEvents);
 
       if (critical) context.pushCoreEvent(createTextEvent("A critical hit!"));
       const effText = getEffectivenessText(effectiveness);
@@ -120,17 +136,17 @@ export function buildTurnEvents(state) {
     }
 
     // POST_DAMAGE / POST_MOVE Hooks
-    context.dispatchPhase(PHASES.POST_DAMAGE, (ctx) => {
+    context.dispatchPhase(PHASES.POST_DAMAGE, () => {
       // Future: Rough Skin, Rocky Helmet, Berserk
     });
 
-    context.dispatchPhase(PHASES.POST_MOVE, (ctx) => {
+    context.dispatchPhase(PHASES.POST_MOVE, () => {
       // Future: Life Orb recoil, Stat drops from moves like Superpower
     });
   };
 
   // Turn Flow Execution
-  context.dispatchPhase(PHASES.ON_TURN_START, (ctx) => {
+  context.dispatchPhase(PHASES.ON_TURN_START, () => {
     // Future: Quick Claw, etc.
   });
 
@@ -155,21 +171,23 @@ export function buildTurnEvents(state) {
   if (checkFaint()) return finalizeContext(context);
 
   // END TURN PHASE
-  // 1. Legacy Statuses (Poison/Burn)
-  const legacyContext = { queue: [], player: playerPokemon, enemy: enemy };
-  processEndTurnStatuses(legacyContext);
-  context.events.push(...legacyContext.queue);
-
-  // Faint Check 3
-  if (checkFaint()) return finalizeContext(context);
-
-  // 2. Formal TURN_END Phase hooks (Weather ticks, Leftovers, etc)
+  // Formal TURN_END Phase hooks (Weather ticks, Status ticks, Leftovers, etc)
   context.dispatchPhase(PHASES.TURN_END, (ctx) => {
-    // Evaluate Weather ticks
+    
+    // 1. Evaluate Weather ticks
     const weatherEffect = WEATHER_EFFECTS[ctx.state.weather.type];
     if (weatherEffect && weatherEffect[PHASES.TURN_END]) {
       weatherEffect[PHASES.TURN_END](ctx);
     }
+
+    // 2. Evaluate Status ticks (Poison/Burn)
+    [playerPokemon, enemy].forEach(combatant => {
+      const statusCondition = combatant.status?.condition;
+      if (statusCondition && STATUS_EFFECTS[statusCondition]?.[PHASES.TURN_END]) {
+        STATUS_EFFECTS[statusCondition][PHASES.TURN_END](ctx, { combatant, targetTag: combatant === playerPokemon ? "player" : "enemy" });
+      }
+    });
+
   });
 
   // Decrement Weather State

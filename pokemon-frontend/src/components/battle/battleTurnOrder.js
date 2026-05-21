@@ -28,7 +28,7 @@ export function getEffectiveSpeed(pokemon) {
  * @param {object} enemyMove      – the move the enemy selected (must have .priority)
  * @returns {{ first: 'player'|'enemy', second: 'player'|'enemy' }}
  */
-export function determineTurnOrder(playerPokemon, enemyPokemon, playerMove, enemyMove) {
+export function determineTurnOrder(playerPokemon, enemyPokemon, playerMove, enemyMove, rng = Math.random) {
   const playerPriority = playerMove?.priority ?? 0;
   const enemyPriority = enemyMove?.priority ?? 0;
 
@@ -50,7 +50,7 @@ export function determineTurnOrder(playerPokemon, enemyPokemon, playerMove, enem
   }
 
   // 3. Speed tie — random coin-flip (50/50)
-  return Math.random() < 0.5
+  return rng() < 0.5
     ? { first: "player", second: "enemy" }
     : { first: "enemy", second: "player" };
 }

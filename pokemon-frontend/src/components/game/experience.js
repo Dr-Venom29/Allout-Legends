@@ -1,4 +1,4 @@
-import { POKEMON_DATA } from "../../data/pokemon/pokemonData.js";
+
 import { calculateHP, calculateStat } from "../../data/pokemon/battleHelpers.js";
 import { canEvolve, evolvePokemon } from "./evolution.js";
 import { getMovesLearnedAtLevel, learnMoves } from "./moveLearning.js";

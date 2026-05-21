@@ -12,7 +12,7 @@
  * @param {object} defender  – the target Pokémon
  * @returns {{ hit: boolean, message: string|null }}
  */
-export function checkMoveHit(move, attacker, defender) {
+export function checkMoveHit(move, attacker, defender, rng = Math.random) {
   // Null or undefined accuracy means the move never misses (e.g. Swift, Aerial Ace)
   const accuracy = move?.accuracy;
   if (accuracy === null || accuracy === undefined) {
@@ -32,7 +32,7 @@ export function checkMoveHit(move, attacker, defender) {
 
   const finalAccuracy = accuracy;
 
-  const roll = Math.random() * 100;
+  const roll = rng() * 100;
 
   if (roll < finalAccuracy) {
     return { hit: true, message: null };

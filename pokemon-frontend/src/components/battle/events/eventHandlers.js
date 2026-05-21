@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { BATTLE_EVENTS } from "./eventTypes";
 import { COMMANDS } from "../presentation/presentationCommands";
 
@@ -10,7 +11,7 @@ import { COMMANDS } from "../presentation/presentationCommands";
  */
 export const EVENT_HANDLERS = {
   
-  [BATTLE_EVENTS.TEXT]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.TEXT]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -19,7 +20,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.WAIT]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.WAIT]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -28,7 +29,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.DAMAGE]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.DAMAGE]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -37,7 +38,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.STATUS_TICK]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.STATUS_TICK]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -46,21 +47,21 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.STATUS_BLOCK]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.STATUS_BLOCK]: async (_payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: []
     };
   },
 
-  [BATTLE_EVENTS.STATUS_CURE]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.STATUS_CURE]: async (_payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: []
     };
   },
 
-  [BATTLE_EVENTS.FAINT]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.FAINT]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -69,7 +70,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.END_BATTLE]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.END_BATTLE]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -78,7 +79,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.EXP_GAIN]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.EXP_GAIN]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -87,7 +88,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.LEVEL_UP]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.LEVEL_UP]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -96,7 +97,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.STAT_UPDATE]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.STAT_UPDATE]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -105,7 +106,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.EVOLUTION_START]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.EVOLUTION_START]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -114,7 +115,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.EVOLUTION_COMPLETE]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.EVOLUTION_COMPLETE]: async (payload, _nextIndex, _callbacks) => {
     return {
       status: "completed",
       commands: [
@@ -123,7 +124,7 @@ export const EVENT_HANDLERS = {
     };
   },
 
-  [BATTLE_EVENTS.MOVE_LEARN_REQUEST]: async (payload, nextIndex) => {
+  [BATTLE_EVENTS.MOVE_LEARN_REQUEST]: async (payload, nextIndex, _callbacks) => {
     return {
       status: "paused",
       reason: "MOVE_LEARN",

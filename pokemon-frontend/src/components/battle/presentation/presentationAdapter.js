@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { COMMANDS } from "./presentationCommands";
 import { assertCommandShape } from "./commandValidation";
 
@@ -13,8 +14,8 @@ const COMMAND_HANDLERS = {
     if (callbacks.setMessage) callbacks.setMessage(payload.message);
   },
 
-  [COMMANDS.WAIT]: async (payload, callbacks) => {
-    await sleep(payload.duration);
+  [COMMANDS.WAIT]: async (_payload, _callbacks) => {
+    await sleep(_payload.duration);
   },
 
   [COMMANDS.UPDATE_HP_BAR]: async (payload, callbacks) => {
@@ -57,7 +58,7 @@ const COMMAND_HANDLERS = {
     if (callbacks.onEndBattle) callbacks.onEndBattle(payload.reason);
   },
 
-  [COMMANDS.PAUSE_QUEUE]: async (payload, callbacks) => {
+  [COMMANDS.PAUSE_QUEUE]: async (_payload, _callbacks) => {
     // No-op in adapter; orchestrator handles lifecycle pauses.
   }
 };

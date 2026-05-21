@@ -1,4 +1,4 @@
-import { calculateExpReward, addExperience } from "../../../game/experience";
+import { calculateExpReward, addExperience } from "../../game/experience";
 import { 
   createExpGainEvent, 
   createLevelUpEvent, 
@@ -34,7 +34,6 @@ export function processProgression(playerPokemon, enemyPokemon) {
 
   // MULTIPLE LEVEL UPS
   if (result.leveledUp) {
-    let currentLevel = playerPokemon.level;
     const finalLevel = result.newLevel;
 
     // We can dramatize each level up visually if we want, or just jump to the final level

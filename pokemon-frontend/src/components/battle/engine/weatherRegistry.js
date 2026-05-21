@@ -1,5 +1,5 @@
 import { PHASES, PRIORITY } from "./triggerPhases";
-import { createDamageEvent, createTextEvent } from "../events/createEvent";
+import { applyDamage, DAMAGE_REASONS } from "./applyDamage";
 
 export const WEATHER_TYPES = {
   NONE: "NONE",
@@ -25,24 +25,26 @@ export const WEATHER_EFFECTS = {
       // Check player
       if (!isImmuneToSandstorm(playerPokemon)) {
         const damage = Math.max(1, Math.floor(playerPokemon.maxHp / 16));
-        playerPokemon.currentHp = Math.max(0, playerPokemon.currentHp - damage);
-        events.push(createDamageEvent({
-          target: "player",
-          previousHp: playerPokemon.currentHp + damage,
-          newHp: playerPokemon.currentHp,
-          message: `${playerPokemon.name} is buffeted by the sandstorm!`,
+        events.push(...applyDamage({
+          context,
+          target: playerPokemon,
+          targetTag: "player",
+          amount: damage,
+          reason: DAMAGE_REASONS.WEATHER,
+          message: `${playerPokemon.name} is buffeted by the sandstorm!`
         }));
       }
 
       // Check enemy
       if (!isImmuneToSandstorm(enemy)) {
         const damage = Math.max(1, Math.floor(enemy.maxHp / 16));
-        enemy.currentHp = Math.max(0, enemy.currentHp - damage);
-        events.push(createDamageEvent({
-          target: "enemy",
-          previousHp: enemy.currentHp + damage,
-          newHp: enemy.currentHp,
-          message: `${enemy.name} is buffeted by the sandstorm!`,
+        events.push(...applyDamage({
+          context,
+          target: enemy,
+          targetTag: "enemy",
+          amount: damage,
+          reason: DAMAGE_REASONS.WEATHER,
+          message: `${enemy.name} is buffeted by the sandstorm!`
         }));
       }
 
@@ -64,23 +66,25 @@ export const WEATHER_EFFECTS = {
 
       if (!isImmuneToHail(playerPokemon)) {
         const damage = Math.max(1, Math.floor(playerPokemon.maxHp / 16));
-        playerPokemon.currentHp = Math.max(0, playerPokemon.currentHp - damage);
-        events.push(createDamageEvent({
-          target: "player",
-          previousHp: playerPokemon.currentHp + damage,
-          newHp: playerPokemon.currentHp,
-          message: `${playerPokemon.name} is pelted by hail!`,
+        events.push(...applyDamage({
+          context,
+          target: playerPokemon,
+          targetTag: "player",
+          amount: damage,
+          reason: DAMAGE_REASONS.WEATHER,
+          message: `${playerPokemon.name} is pelted by hail!`
         }));
       }
 
       if (!isImmuneToHail(enemy)) {
         const damage = Math.max(1, Math.floor(enemy.maxHp / 16));
-        enemy.currentHp = Math.max(0, enemy.currentHp - damage);
-        events.push(createDamageEvent({
-          target: "enemy",
-          previousHp: enemy.currentHp + damage,
-          newHp: enemy.currentHp,
-          message: `${enemy.name} is pelted by hail!`,
+        events.push(...applyDamage({
+          context,
+          target: enemy,
+          targetTag: "enemy",
+          amount: damage,
+          reason: DAMAGE_REASONS.WEATHER,
+          message: `${enemy.name} is pelted by hail!`
         }));
       }
 

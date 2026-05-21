@@ -39,12 +39,12 @@ export function getEffectivenessText(effectiveness) {
 }
 
 // Calculate damage
-export function calculateDamage(move, attacker, defender, powerMultiplier = 1.0) {
+export function calculateDamage(move, attacker, defender, powerMultiplier = 1.0, rng = Math.random) {
   // Base power based on move (simplified)
   const movePower = move.power || 40;
   
   // Critical hit check (Gen 3-4: base 1/16 chance, 1.5x multiplier)
-  const critRoll = Math.random();
+  const critRoll = rng();
   const critChance = 1 / 16;
   const isCritical = critRoll < critChance;
   const criticalMultiplier = isCritical ? 1.5 : 1;
@@ -76,7 +76,7 @@ export function calculateDamage(move, attacker, defender, powerMultiplier = 1.0)
   const stab = (move.type === attacker.type1 || move.type === attacker.type2) ? 1.5 : 1;
   
   // Random factor (85-100%)
-  const random = 0.85 + Math.random() * 0.15;
+  const random = 0.85 + rng() * 0.15;
   
   let damage = ((2 * level / 5 + 2) * movePower * (attackStat / safeDefenseStat) / 50 + 2) * stab * effectiveness * criticalMultiplier * random * powerMultiplier;
   damage = Math.max(1, Math.floor(damage));
