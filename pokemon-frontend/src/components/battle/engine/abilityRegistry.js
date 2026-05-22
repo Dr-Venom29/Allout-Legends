@@ -1,37 +1,14 @@
-import { PHASES } from "./triggerPhases";
+import { THRESHOLD_ABILITIES, THRESHOLD_ABILITY_EFFECTS } from "./registries/abilities/thresholdAbilities";
+import { REACTIVE_ABILITIES, REACTIVE_ABILITY_EFFECTS } from "./registries/abilities/reactiveAbilities";
 
 export const ABILITIES = {
-  BLAZE: "BLAZE",
-  TORRENT: "TORRENT",
-  OVERGROW: "OVERGROW",
-  SWARM: "SWARM",
+  ...THRESHOLD_ABILITIES,
+  ...REACTIVE_ABILITIES,
 };
 
-function checkThresholdAndBoost(context, pCtx, requiredType, abilityName) {
-  const { attacker, move } = pCtx;
-
-  if (move.type !== requiredType) return;
-
-  const threshold = attacker.maxHp / 3;
-  if (attacker.currentHp <= threshold) {
-    context.modifiers.power.push({ source: abilityName, multiplier: 1.5 });
-    context.trace.modifier(abilityName, "power", 1.5);
-  }
-}
-
 export const ABILITY_EFFECTS = {
-  [ABILITIES.BLAZE]: {
-    [PHASES.ON_DAMAGE]: (context, pCtx) => checkThresholdAndBoost(context, pCtx, "Fire", ABILITIES.BLAZE),
-  },
-  [ABILITIES.TORRENT]: {
-    [PHASES.ON_DAMAGE]: (context, pCtx) => checkThresholdAndBoost(context, pCtx, "Water", ABILITIES.TORRENT),
-  },
-  [ABILITIES.OVERGROW]: {
-    [PHASES.ON_DAMAGE]: (context, pCtx) => checkThresholdAndBoost(context, pCtx, "Grass", ABILITIES.OVERGROW),
-  },
-  [ABILITIES.SWARM]: {
-    [PHASES.ON_DAMAGE]: (context, pCtx) => checkThresholdAndBoost(context, pCtx, "Bug", ABILITIES.SWARM),
-  },
+  ...THRESHOLD_ABILITY_EFFECTS,
+  ...REACTIVE_ABILITY_EFFECTS,
 };
 
 /**
@@ -44,3 +21,4 @@ export function dispatchAbilityPhase(phase, context, pCtx) {
     ABILITY_EFFECTS[attackerAbility][phase](context, pCtx);
   }
 }
+

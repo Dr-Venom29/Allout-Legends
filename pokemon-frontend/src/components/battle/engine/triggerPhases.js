@@ -9,9 +9,10 @@ export const PHASES = {
 };
 
 export const PRIORITY = {
-  HIGH_ABILITY: 100,
-  WEATHER: 50,
+  FIELD: 100,
+  WEATHER: 80,
+  STATUS: 60,
+  ABILITY: 40,
   ITEM: 20,
-  LOW_ABILITY: 10,
   NORMAL: 0,
 };

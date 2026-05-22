@@ -1,6 +1,8 @@
 import { SeededRNG } from "./SeededRNG";
 import { RuntimeTrace } from "./RuntimeTrace";
 
+import { cloneBattleState } from "./cloneBattleState";
+
 const MAX_REACTION_DEPTH = 10;
 
 /**
@@ -12,19 +14,20 @@ const MAX_REACTION_DEPTH = 10;
  */
 export class ReactionContext {
   /**
-   * @param {Object} initialState - { playerPokemon, enemy, weather, playerMove, enemyMove }
+   * @param {Object} initialState - { playerPokemon, enemy, weather, playerAction, enemyAction }
    * @param {Object} options
    * @param {number} [options.seed] - Optional seed for deterministic RNG. Auto-generated if omitted.
    */
   constructor(initialState, { seed } = {}) {
-    this.state = initialState; // { playerPokemon, enemy, weather, etc }
+    this.state = cloneBattleState(initialState); // Deep clone for immutability
     this.events = [];          // The flat semantic queue being generated
     this.depth = 0;
     this.pendingReactions = [];
     
     // Deterministic RNG — ALL randomness flows through this
-    this._rng = new SeededRNG(seed);
-    this.rng = this._rng.bound();
+    const rngInstance = new SeededRNG(seed);
+    this.seed = rngInstance.seed;
+    this.rng = rngInstance.bound((source, roll) => this.trace.rngRoll(source, roll));
     
     // Structured modifier pipeline
     this.modifiers = {
@@ -107,5 +110,45 @@ export class ReactionContext {
     for (const event of eventArray) {
       this.events.push(event);
     }
+  }
+
+  /** Reset a modifier bucket by name (future-proofed cleanup hook). */
+  resetModifierBucket(bucketName) {
+    if (!this.modifiers[bucketName]) {
+      this.trace.warn(`[ReactionContext] resetModifierBucket unknown bucket: ${bucketName}`);
+      return;
+    }
+    this.modifiers[bucketName] = [];
+    this.trace.log(`resetModifierBucket: ${bucketName}`);
+  }
+
+  /** Decrement a move's PP in a consistent, traceable way. */
+  decrementPP(move, ownerTag = null) {
+    if (!move) return;
+    if (move.currentPP != null && move.currentPP > 0) {
+      move.currentPP -= 1;
+      this.trace.mutation({ mutationType: "DECREMENT_PP", targetTag: ownerTag, payload: { moveName: move.name, remaining: move.currentPP } });
+    }
+  }
+
+  /** Decrement weather turns and clear if expired. Returns true if cleared. */
+  decrementWeatherTurns() {
+    if (!this.state.weather) return false;
+    if (this.state.weather.turnsRemaining > 0) {
+      this.state.weather.turnsRemaining -= 1;
+      this.trace.mutation({ mutationType: "DECREMENT_WEATHER_TURNS", targetTag: "weather", payload: { remaining: this.state.weather.turnsRemaining } });
+      if (this.state.weather.turnsRemaining === 0) {
+        this.clearWeather();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Clear active weather via a mutation helper. */
+  clearWeather() {
+    if (!this.state.weather) return;
+    this.state.weather.type = "NONE";
+    this.trace.mutation({ mutationType: "CLEAR_WEATHER", targetTag: "weather", payload: {} });
   }
 }

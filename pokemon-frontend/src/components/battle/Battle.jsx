@@ -16,7 +16,7 @@ import {
 import { createWildBattle, tryRun } from "./battleLogic";
 import { buildMove } from "../../data/pokemon/moveData";
 import { buildTurnEvents } from "./engine/buildTurnEvents";
-import { buildEnemyOnlyTurnEvents } from "./engine/buildEnemyOnlyTurnEvents";
+import { BATTLE_ACTIONS } from "./engine/battleActions";
 import { useBattleQueue } from "./hooks/useBattleQueue";
 import { processProgression } from "./engine/processProgression";
 import { replaceMove } from "../game/moveLearning";
@@ -268,12 +268,13 @@ export default function Battle({
     const stateSnapshot = {
       playerPokemon: playerPokemonSnapshot,
       enemy: enemySnapshot,
-      playerMove: { name: "NO_OP", power: 0, type: "Normal", category: "status", accuracy: null, currentPP: null, maxPP: null, priority: 0 },
-      enemyMove: enemyMoveSnapshot,
+      weather: weatherSnapshot,
+      playerAction: { type: BATTLE_ACTIONS.NONE },
+      enemyAction: { type: BATTLE_ACTIONS.MOVE, move: enemyMoveSnapshot },
     };
 
     const turnSeed = Date.now() ^ (Math.random() * 0x100000000 >>> 0);
-    const { events, updatedState } = buildEnemyOnlyTurnEvents(stateSnapshot, turnSeed);
+    const { events, updatedState } = buildTurnEvents(stateSnapshot, turnSeed);
 
     // Keep React-side objects aligned for subsequent turns (statuses/PP/currentHp)
     if (updatedState.playerPokemon) {
@@ -529,8 +530,9 @@ export default function Battle({
     const stateSnapshot = {
       playerPokemon: resolvedPlayerPokemon,
       enemy,
-      playerMove,
-      enemyMove,
+      weather,
+      playerAction: { type: BATTLE_ACTIONS.MOVE, move: playerMove },
+      enemyAction: { type: BATTLE_ACTIONS.MOVE, move: enemyMove },
     };
 
     // 1. Engine creates deterministic queue instantly

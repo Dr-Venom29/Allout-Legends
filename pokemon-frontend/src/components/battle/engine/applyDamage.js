@@ -1,4 +1,5 @@
 import { createDamageEvent, createTextEvent } from "../events/createEvent";
+import { setHp } from "./runtimeMutations/setHp";
 
 export const DAMAGE_REASONS = {
   MOVE: "MOVE",
@@ -22,7 +23,11 @@ export const DAMAGE_REASONS = {
  * @param {string} payload.reason - Reason for telemetry/logging (DAMAGE_REASONS)
  * @param {string} payload.message - Optional text message to emit
  */
-export function applyDamage({ target, targetTag, amount, reason, message }) {
+export function applyDamage({ context, target, targetTag, amount, reason, message }) {
+  if (!context || !context.trace) {
+    throw new Error(`[applyDamage] Missing ReactionContext.`);
+  }
+
   if (!target || typeof target.currentHp !== 'number') {
     throw new Error(`[applyDamage] Invalid target state. Expected a Pokemon object.`);
   }
@@ -33,8 +38,7 @@ export function applyDamage({ target, targetTag, amount, reason, message }) {
 
   // 1. Apply Bounds-Checked Mutation
   const previousHp = target.currentHp;
-  const newHp = Math.max(0, previousHp - Math.floor(amount));
-  target.currentHp = newHp;
+  const newHp = setHp(context, target, targetTag, previousHp - Math.floor(amount));
 
   // 2. Generate Semantic Events
   const events = [];

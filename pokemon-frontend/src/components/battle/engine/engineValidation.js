@@ -13,8 +13,8 @@ export function assertValidBattleState(state) {
     throw new Error(`[Engine Validation] Invalid enemy state.`);
   }
 
-  if (!state.playerMove || !state.enemyMove) {
-    throw new Error(`[Engine Validation] Both combatants must have a selected move to evaluate a turn.`);
+  if (!state.playerAction || !state.enemyAction) {
+    throw new Error(`[Engine Validation] Both combatants must have a selected action to evaluate a turn.`);
   }
 
   if (state.playerPokemon.currentHp < 0 || state.enemy.currentHp < 0) {

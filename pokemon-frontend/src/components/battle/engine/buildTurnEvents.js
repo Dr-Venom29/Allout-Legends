@@ -1,40 +1,30 @@
-import { createTextEvent, createWaitEvent, createFaintEvent, createEndBattleEvent } from "../events/createEvent";
-import { calculateDamage, getEffectivenessText } from "../../../data/pokemon/battleHelpers";
-import { determineTurnOrder } from "../battleTurnOrder";
-import { checkMoveHit } from "../battleAccuracy";
-import { applyDamage, DAMAGE_REASONS } from "./applyDamage";
-import { STATUS_EFFECTS } from "./statusRegistry";
-import { dispatchAbilityPhase } from "./abilityRegistry";
-import { resolvePowerModifiers } from "./resolvePowerModifiers";
 import { assertValidBattleState } from "./engineValidation";
 import { ReactionContext } from "./ReactionContext";
+import { determineTurnOrder } from "../battleTurnOrder";
+import { executeActionPipeline } from "./pipelines/executeActionPipeline";
+import { turnEndPipeline } from "./pipelines/turnEndPipeline";
+import { dispatchPhasePipeline } from "./pipelines/dispatchPhasePipeline";
 import { PHASES } from "./triggerPhases";
-import { WEATHER_EFFECTS } from "./weatherRegistry";
+import { createFaintEvent, createTextEvent, createWaitEvent, createEndBattleEvent } from "../events/createEvent";
 
 /**
  * PURE FUNCTION
  * Resolves a full battle turn instantly and returns an ordered queue of events.
  * 
  * @param {Object} state - The current battle state
+ * @param {number} seed - The deterministic seed for the turn
  * @returns {Object} { events: Array, updatedState: Object }
  */
-export function buildTurnEvents(state) {
+export function buildTurnEvents(state, seed) {
   // Guard the engine from invalid state injection
   assertValidBattleState(state);
 
   // Initialize Reaction Context
-  const context = new ReactionContext({
-    playerPokemon: { ...state.playerPokemon },
-    enemy: { ...state.enemy },
-    weather: state.weather || { type: "NONE", turnsRemaining: 0 },
-    playerMove: { ...state.playerMove },
-    enemyMove: { ...state.enemyMove },
-  });
-
-  const { playerPokemon, enemy, playerMove, enemyMove } = context.state;
+  const context = new ReactionContext(state, { seed });
+  const { playerPokemon, enemy, playerAction, enemyAction } = context.state;
 
   // Determine order
-  const turnOrder = determineTurnOrder(playerPokemon, enemy, playerMove, enemyMove, context.rng);
+  const turnOrder = determineTurnOrder(playerPokemon, enemy, playerAction, enemyAction, context.rng);
 
   const checkFaint = () => {
     if (enemy.currentHp <= 0) {
@@ -55,158 +45,19 @@ export function buildTurnEvents(state) {
     return false;
   };
 
-  const executeAttack = (isPlayerAttacking) => {
-    const attacker = isPlayerAttacking ? playerPokemon : enemy;
-    const defender = isPlayerAttacking ? enemy : playerPokemon;
-    const move = isPlayerAttacking ? playerMove : enemyMove;
-    const targetTag = isPlayerAttacking ? "enemy" : "player";
-    const attackerTag = isPlayerAttacking ? "player" : "enemy";
-
-    // 1. PRE_MOVE Hooks (Statuses, flinching, etc.)
-    context.executionBlocked = false;
-    context.dispatchPhase(PHASES.PRE_MOVE, (ctx, pCtx) => {
-      // Evaluate Status Effects
-      const statusCondition = attacker.status?.condition;
-      if (statusCondition && STATUS_EFFECTS[statusCondition]?.[PHASES.PRE_MOVE]) {
-        STATUS_EFFECTS[statusCondition][PHASES.PRE_MOVE](ctx, pCtx);
-      }
-      
-      // Evaluate Volatiles (Confusion)
-      const volatileStatuses = attacker.volatileStatuses || [];
-      for (const vStatus of volatileStatuses) {
-        if (STATUS_EFFECTS[vStatus.condition]?.[PHASES.PRE_MOVE]) {
-          STATUS_EFFECTS[vStatus.condition][PHASES.PRE_MOVE](ctx, pCtx);
-        }
-      }
-    }, { attacker, targetTag, attackerTag });
-
-    if (context.executionBlocked) return;
-
-    // 2. Execute Move 
-    context.pushCoreEvent(createTextEvent(`${attacker.name} used ${move.name}!`));
-    context.pushCoreEvent(createWaitEvent(500));
-
-    // Decrement PP
-    if (move.currentPP !== null && move.currentPP > 0) {
-      move.currentPP -= 1;
-    }
-
-    // Accuracy Check
-    const hitCheck = checkMoveHit(move, attacker, defender, context.rng);
-    if (!hitCheck.hit) {
-      context.pushCoreEvent(createTextEvent(`${attacker.name}'s attack missed!`));
-      context.pushCoreEvent(createWaitEvent(800));
-      return;
-    }
-
-    // ON_DAMAGE Phase (Modifiers)
-    context.modifiers.power = []; // Reset for each move
-    context.dispatchPhase(PHASES.ON_DAMAGE, (ctx, pCtx) => {
-      // Evaluate Weather ON_DAMAGE modifiers
-      const weatherEffect = WEATHER_EFFECTS[ctx.state.weather.type];
-      if (weatherEffect && weatherEffect[PHASES.ON_DAMAGE]) {
-        weatherEffect[PHASES.ON_DAMAGE](ctx, pCtx); // e.g. Rain modifying Fire/Water power
-      }
-      
-      // Evaluate Ability ON_DAMAGE modifiers
-      dispatchAbilityPhase(PHASES.ON_DAMAGE, ctx, pCtx);
-      
-    }, { attacker, defender, move, attackerTag, defenderTag: targetTag });
-
-    // Damage Resolution
-    if (move.power > 0) {
-      const finalPowerMultiplier = resolvePowerModifiers(context.modifiers.power);
-      
-      const { damage, effectiveness, critical } = calculateDamage(
-        move, 
-        attacker, 
-        defender, 
-        finalPowerMultiplier,
-        context.rng
-      );
-      
-      const damageEvents = applyDamage({
-        context,
-        target: defender,
-        targetTag: targetTag,
-        amount: damage,
-        reason: DAMAGE_REASONS.MOVE
-      });
-      
-      context.pushCoreEvents(damageEvents);
-
-      if (critical) context.pushCoreEvent(createTextEvent("A critical hit!"));
-      const effText = getEffectivenessText(effectiveness);
-      if (effText) context.pushCoreEvent(createTextEvent(effText));
-
-      context.pushCoreEvent(createWaitEvent(800));
-    }
-
-    // POST_DAMAGE / POST_MOVE Hooks
-    context.dispatchPhase(PHASES.POST_DAMAGE, () => {
-      // Future: Rough Skin, Rocky Helmet, Berserk
-    });
-
-    context.dispatchPhase(PHASES.POST_MOVE, () => {
-      // Future: Life Orb recoil, Stat drops from moves like Superpower
-    });
-  };
-
   // Turn Flow Execution
-  context.dispatchPhase(PHASES.ON_TURN_START, () => {
-    // Future: Quick Claw, etc.
-  });
+  dispatchPhasePipeline(context, PHASES.ON_TURN_START, {});
 
   // Turn 1
-  if (turnOrder.first === "player") {
-    executeAttack(true);
-  } else {
-    executeAttack(false);
-  }
-
-  // Faint Check 1
+  executeActionPipeline(context, turnOrder.first === "player");
   if (checkFaint()) return finalizeContext(context);
 
   // Turn 2
-  if (turnOrder.first === "player") {
-    executeAttack(false);
-  } else {
-    executeAttack(true);
-  }
-
-  // Faint Check 2
+  executeActionPipeline(context, turnOrder.first === "enemy");
   if (checkFaint()) return finalizeContext(context);
 
-  // END TURN PHASE
-  // Formal TURN_END Phase hooks (Weather ticks, Status ticks, Leftovers, etc)
-  context.dispatchPhase(PHASES.TURN_END, (ctx) => {
-    
-    // 1. Evaluate Weather ticks
-    const weatherEffect = WEATHER_EFFECTS[ctx.state.weather.type];
-    if (weatherEffect && weatherEffect[PHASES.TURN_END]) {
-      weatherEffect[PHASES.TURN_END](ctx);
-    }
-
-    // 2. Evaluate Status ticks (Poison/Burn)
-    [playerPokemon, enemy].forEach(combatant => {
-      const statusCondition = combatant.status?.condition;
-      if (statusCondition && STATUS_EFFECTS[statusCondition]?.[PHASES.TURN_END]) {
-        STATUS_EFFECTS[statusCondition][PHASES.TURN_END](ctx, { combatant, targetTag: combatant === playerPokemon ? "player" : "enemy" });
-      }
-    });
-
-  });
-
-  // Decrement Weather State
-  if (context.state.weather.turnsRemaining > 0) {
-    context.state.weather.turnsRemaining -= 1;
-    if (context.state.weather.turnsRemaining === 0) {
-      context.state.weather.type = "NONE";
-      context.pushCoreEvent(createTextEvent("The weather cleared."));
-    }
-  }
-
-  // Final Faint Check
+  // End Turn Phase
+  turnEndPipeline(context);
   if (checkFaint()) return finalizeContext(context);
 
   return finalizeContext(context);

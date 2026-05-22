@@ -1,8 +1,19 @@
+export const TRACE_CATEGORIES = {
+  PHASE: "PHASE",
+  REACTION: "REACTION",
+  MODIFIER: "MODIFIER",
+  DAMAGE: "DAMAGE",
+  RNG: "RNG",
+  MUTATION: "MUTATION",
+  LOG: "LOG",
+  WARN: "WARN",
+};
+
 /**
  * RuntimeTrace — Centralized Telemetry Layer
  *
  * Collects all runtime diagnostic output into a structured, inspectable log.
- * Replaces scattered console.group / console.log / debugTrace.push calls.
+ * Replaces scattered console.group / console.log calls.
  *
  * All engine systems should route diagnostics through this layer.
  * UI and presentation systems should NEVER write to RuntimeTrace.
@@ -13,83 +24,76 @@ export class RuntimeTrace {
     this._tick = 0;
   }
 
-  /**
-   * Log entry into a phase group.
-   * @param {string} phase - The phase name (e.g. "PRE_MOVE")
-   */
   phaseStart(phase) {
-    this._entries.push({ type: "PHASE_START", phase, timestamp: this._tick++ });
+    this._entries.push({ type: TRACE_CATEGORIES.PHASE, action: "START", phase, timestamp: this._tick++ });
   }
 
-  /**
-   * Close a phase group.
-   * @param {string} phase - The phase name
-   */
   phaseEnd(phase) {
-    this._entries.push({ type: "PHASE_END", phase, timestamp: this._tick++ });
+    this._entries.push({ type: TRACE_CATEGORIES.PHASE, action: "END", phase, timestamp: this._tick++ });
   }
 
-  /**
-   * Log a reaction emission.
-   * @param {string} source - The system that emitted (e.g. "SANDSTORM")
-   * @param {string} originPhase - The phase during which emission occurred
-   * @param {number} priority - The priority value
-   */
   reaction(source, originPhase, priority) {
-    this._entries.push({ type: "REACTION", source, originPhase, priority, timestamp: this._tick++ });
+    this._entries.push({ type: TRACE_CATEGORIES.REACTION, source, originPhase, priority, timestamp: this._tick++ });
   }
 
-  /**
-   * Log a modifier application.
-   * @param {string} source - The system that applied (e.g. "BLAZE")
-   * @param {string} category - The modifier category (e.g. "power")
-   * @param {number} value - The multiplier value
-   */
   modifier(source, category, value) {
-    this._entries.push({ type: "MODIFIER", source, category, value, timestamp: this._tick++ });
+    this._entries.push({ type: TRACE_CATEGORIES.MODIFIER, source, category, value, timestamp: this._tick++ });
   }
 
-  /**
-   * Log a general engine event.
-   * @param {string} message - The diagnostic message
-   */
+  rngRoll(source, roll) {
+    this._entries.push({ type: TRACE_CATEGORIES.RNG, source, roll, timestamp: this._tick++ });
+  }
+
+  mutation(details) {
+    this._entries.push({ type: TRACE_CATEGORIES.MUTATION, ...details, timestamp: this._tick++ });
+  }
+
+  damage(details) {
+    this._entries.push({ type: TRACE_CATEGORIES.DAMAGE, ...details, timestamp: this._tick++ });
+  }
+
   log(message) {
-    this._entries.push({ type: "LOG", message, timestamp: this._tick++ });
+    this._entries.push({ type: TRACE_CATEGORIES.LOG, message, timestamp: this._tick++ });
   }
 
-  /**
-   * Log a warning.
-   * @param {string} message - The warning message
-   */
   warn(message) {
-    this._entries.push({ type: "WARN", message, timestamp: this._tick++ });
+    this._entries.push({ type: TRACE_CATEGORIES.WARN, message, timestamp: this._tick++ });
   }
 
-  /** Returns the full structured trace log. */
   get entries() {
     return this._entries;
   }
 
-  /** Dumps the trace to the browser console in a readable format. */
+  export() {
+    return JSON.stringify(this._entries, null, 2);
+  }
+
   dump() {
     for (const entry of this._entries) {
       switch (entry.type) {
-        case "PHASE_START":
-          console.group(`[PHASE] ${entry.phase}`);
+        case TRACE_CATEGORIES.PHASE:
+          if (entry.action === "START") console.group(`[PHASE] ${entry.phase}`);
+          if (entry.action === "END") console.groupEnd();
           break;
-        case "PHASE_END":
-          console.groupEnd();
-          break;
-        case "REACTION":
+        case TRACE_CATEGORIES.REACTION:
           console.log(`  ⚡ Reaction (Source: ${entry.source} | Phase: ${entry.originPhase} | Priority: ${entry.priority})`);
           break;
-        case "MODIFIER":
+        case TRACE_CATEGORIES.MODIFIER:
           console.log(`  🔧 Modifier (Source: ${entry.source} | ${entry.category}: ×${entry.value})`);
           break;
-        case "WARN":
+        case TRACE_CATEGORIES.RNG:
+          console.log(`  🎲 RNG Roll (${entry.source}): ${entry.roll.toFixed(4)}`);
+          break;
+        case TRACE_CATEGORIES.MUTATION:
+          console.log(`  🧬 Mutation [${entry.mutationType}] (Target: ${entry.targetTag} | Details: ${JSON.stringify(entry.payload)})`);
+          break;
+        case TRACE_CATEGORIES.DAMAGE:
+          console.log(`  💥 Damage Evaluated (Target: ${entry.targetTag} | Amount: ${entry.amount} | Reason: ${entry.reason})`);
+          break;
+        case TRACE_CATEGORIES.WARN:
           console.warn(`  ⚠️ ${entry.message}`);
           break;
-        case "LOG":
+        case TRACE_CATEGORIES.LOG:
           console.log(`  ${entry.message}`);
           break;
         default:

@@ -1,5 +1,6 @@
 import { PHASES, PRIORITY } from "./triggerPhases";
 import { applyDamage, DAMAGE_REASONS } from "./applyDamage";
+import { MODIFIER_OPERATIONS, MODIFIER_STAGES } from "./resolveModifiers";
 
 export const WEATHER_TYPES = {
   NONE: "NONE",
@@ -102,9 +103,23 @@ export const WEATHER_EFFECTS = {
   [WEATHER_TYPES.RAIN]: {
     [PHASES.ON_DAMAGE]: (context, phaseContext) => {
       if (phaseContext.move.type === "Water") {
-        context.modifiers.power.push({ source: WEATHER_TYPES.RAIN, multiplier: 1.5 });
+        context.modifiers.power.push({
+          source: WEATHER_TYPES.RAIN,
+          category: "WEATHER",
+          operation: MODIFIER_OPERATIONS.MULTIPLY,
+          value: 1.5,
+          priority: PRIORITY.WEATHER,
+          stage: MODIFIER_STAGES.MULTIPLICATIVE
+        });
       } else if (phaseContext.move.type === "Fire") {
-        context.modifiers.power.push({ source: WEATHER_TYPES.RAIN, multiplier: 0.5 });
+        context.modifiers.power.push({
+          source: WEATHER_TYPES.RAIN,
+          category: "WEATHER",
+          operation: MODIFIER_OPERATIONS.MULTIPLY,
+          value: 0.5,
+          priority: PRIORITY.WEATHER,
+          stage: MODIFIER_STAGES.MULTIPLICATIVE
+        });
       }
     }
   },
@@ -112,9 +127,23 @@ export const WEATHER_EFFECTS = {
   [WEATHER_TYPES.SUN]: {
     [PHASES.ON_DAMAGE]: (context, phaseContext) => {
       if (phaseContext.move.type === "Fire") {
-        context.modifiers.power.push({ source: WEATHER_TYPES.SUN, multiplier: 1.5 });
+        context.modifiers.power.push({
+          source: WEATHER_TYPES.SUN,
+          category: "WEATHER",
+          operation: MODIFIER_OPERATIONS.MULTIPLY,
+          value: 1.5,
+          priority: PRIORITY.WEATHER,
+          stage: MODIFIER_STAGES.MULTIPLICATIVE
+        });
       } else if (phaseContext.move.type === "Water") {
-        context.modifiers.power.push({ source: WEATHER_TYPES.SUN, multiplier: 0.5 });
+        context.modifiers.power.push({
+          source: WEATHER_TYPES.SUN,
+          category: "WEATHER",
+          operation: MODIFIER_OPERATIONS.MULTIPLY,
+          value: 0.5,
+          priority: PRIORITY.WEATHER,
+          stage: MODIFIER_STAGES.MULTIPLICATIVE
+        });
       }
     }
   }

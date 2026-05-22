@@ -40,8 +40,13 @@ export class SeededRNG {
   /**
    * Creates a bound function matching Math.random() call signature.
    * Pass this to any function that accepts `rng = Math.random`.
+   * Accepts an optional traceCallback to emit telemetry for every roll.
    */
-  bound() {
-    return () => this.next();
+  bound(traceCallback = null) {
+    return (source = "UNKNOWN") => {
+      const roll = this.next();
+      if (traceCallback) traceCallback(source, roll);
+      return roll;
+    };
   }
 }
