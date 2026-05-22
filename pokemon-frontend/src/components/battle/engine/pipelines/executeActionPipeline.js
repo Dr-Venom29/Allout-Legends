@@ -25,10 +25,9 @@ export function executeActionPipeline(context, isPlayerAttacking) {
   const move = action.move;
 
   // 1. PRE_MOVE Hooks (Statuses, flinching, etc.)
-  context.executionBlocked = false;
-  dispatchPhasePipeline(context, PHASES.PRE_MOVE, { attacker, targetTag, attackerTag });
-
-  if (context.executionBlocked) return;
+  // Dispatch PRE_MOVE and use the returned phase result to decide execution flow.
+  const preMoveResult = dispatchPhasePipeline(context, PHASES.PRE_MOVE, { attacker, defender, targetTag, attackerTag });
+  if (preMoveResult?.blocked) return;
 
   // 2. Announce Move
   context.pushCoreEvent(createTextEvent(`${attacker.name} used ${move.name}!`));

@@ -15,7 +15,7 @@ function checkThresholdAndBoost(context, pCtx, requiredType, abilityName) {
 
   const threshold = attacker.maxHp / 3;
   if (attacker.currentHp <= threshold) {
-    context.modifiers.power.push({
+    context.addModifier("power", {
       source: abilityName,
       category: "ABILITY",
       operation: MODIFIER_OPERATIONS.MULTIPLY,
@@ -23,7 +23,6 @@ function checkThresholdAndBoost(context, pCtx, requiredType, abilityName) {
       priority: PRIORITY.ABILITY,
       stage: MODIFIER_STAGES.MULTIPLICATIVE
     });
-    context.trace.modifier(abilityName, "power", 1.5);
   }
 }
 

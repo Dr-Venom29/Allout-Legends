@@ -42,7 +42,7 @@ export const VOLATILE_STATUSES = {
         ];
 
         if (roll < 0.33) {
-          context.executionBlocked = true; // Hits itself instead of attacking
+          // Hits itself instead of attacking — signal blocked without mutating global state.
           
           // Confusion damage is typeless physical 40 BP
           const mockMove = { power: 40, category: 'physical', type: null };
@@ -69,6 +69,7 @@ export const VOLATILE_STATUSES = {
           originPhase: PHASES.PRE_MOVE,
           events
         });
+        if (roll < 0.33) return { blocked: true };
       }
     }
   }

@@ -122,6 +122,30 @@ export class ReactionContext {
     this.trace.log(`resetModifierBucket: ${bucketName}`);
   }
 
+  /** Add a modifier to a named bucket in a validated, traced way. */
+  addModifier(bucketName, modifier) {
+    if (!bucketName || typeof bucketName !== "string") {
+      this.trace.warn(`[ReactionContext] addModifier requires a bucketName string`);
+      return;
+    }
+    if (!this.modifiers[bucketName]) {
+      this.trace.warn(`[ReactionContext] addModifier unknown bucket: ${bucketName}`);
+      return;
+    }
+    // Basic validation of modifier shape
+    if (!modifier || typeof modifier !== "object") {
+      this.trace.warn(`[ReactionContext] addModifier requires a modifier object`);
+      return;
+    }
+    this.modifiers[bucketName].push(modifier);
+    // Structured trace for modifier addition
+    if (this.trace && typeof this.trace.emit === "function") {
+      this.trace.emit({ category: "MODIFIER", source: modifier.source || "UNKNOWN", phase: modifier.phase || null, payload: { bucket: bucketName, modifier } });
+    } else if (this.trace && typeof this.trace.modifier === "function") {
+      this.trace.modifier(modifier.source || "UNKNOWN", bucketName, modifier.value ?? null);
+    }
+  }
+
   /** Decrement a move's PP in a consistent, traceable way. */
   decrementPP(move, ownerTag = null) {
     if (!move) return;

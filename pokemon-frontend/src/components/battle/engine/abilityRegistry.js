@@ -16,9 +16,10 @@ export const ABILITY_EFFECTS = {
  * protecting orchestration logic from complex ability branching.
  */
 export function dispatchAbilityPhase(phase, context, pCtx) {
-  const attackerAbility = pCtx.attacker?.ability;
-  if (attackerAbility && ABILITY_EFFECTS[attackerAbility]?.[phase]) {
-    ABILITY_EFFECTS[attackerAbility][phase](context, pCtx);
+  const abilityOwner = pCtx.abilityOwner;
+  const ownerAbility = abilityOwner?.ability;
+  if (ownerAbility && ABILITY_EFFECTS[ownerAbility]?.[phase]) {
+    ABILITY_EFFECTS[ownerAbility][phase](context, pCtx);
   }
 }
 

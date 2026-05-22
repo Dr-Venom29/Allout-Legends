@@ -101,4 +101,13 @@ export class RuntimeTrace {
       }
     }
   }
+
+    /**
+     * Generic structured emit for arbitrary trace entries.
+     * Accepts a plain object and appends a timestamp.
+     */
+    emit(entry) {
+      if (!entry || typeof entry !== "object") return;
+      this._entries.push({ ...entry, timestamp: this._tick++ });
+    }
 }

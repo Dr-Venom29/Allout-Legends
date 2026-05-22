@@ -73,8 +73,7 @@ export const PERSISTENT_STATUSES = {
       const roll = context.rng();
       
       if (roll < 0.25) {
-        context.executionBlocked = true;
-        
+        // Signal the phase as blocked without mutating global runtime state.
         context.emitReaction({
           priority: PRIORITY.STATUS,
           source: `STATUS_${STATUS.PARALYSIS}`,
@@ -85,6 +84,7 @@ export const PERSISTENT_STATUSES = {
             createWaitEvent(800)
           ]
         });
+        return { blocked: true };
       }
     }
   },
@@ -96,7 +96,6 @@ export const PERSISTENT_STATUSES = {
       
       if (turns > 1) {
         attacker.status.turnsRemaining -= 1;
-        context.executionBlocked = true;
 
         context.emitReaction({
           priority: PRIORITY.STATUS,
@@ -108,6 +107,7 @@ export const PERSISTENT_STATUSES = {
             createWaitEvent(800)
           ]
         });
+        return { blocked: true };
       } else {
         removeStatus(context, attacker, phaseContext.attackerTag);
         context.emitReaction({
@@ -140,7 +140,6 @@ export const PERSISTENT_STATUSES = {
           ]
         });
       } else {
-        context.executionBlocked = true;
         context.emitReaction({
           priority: PRIORITY.STATUS,
           source: `STATUS_${STATUS.FREEZE}`,
@@ -151,6 +150,7 @@ export const PERSISTENT_STATUSES = {
             createWaitEvent(800)
           ]
         });
+        return { blocked: true };
       }
     }
   }

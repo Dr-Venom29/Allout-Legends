@@ -17,18 +17,15 @@ import { PHASES } from "../triggerPhases";
  */
 export function executeDamagePipeline(context, attacker, defender, move, attackerTag, defenderTag) {
   if (move.power <= 0) return;
+  // 1. Trigger ON_DAMAGE Modifiers using a phase-local modifier bucket (prevents cross-phase contamination)
+  const powerBucket = [];
+  dispatchPhasePipeline(context, PHASES.ON_DAMAGE, { attacker, defender, move, attackerTag, defenderTag, modifierBuckets: { power: powerBucket } });
 
-  // 1. Trigger ON_DAMAGE Modifiers
-  // Use a reset helper instead of direct mutation to future-proof modifier ownership.
-  context.resetModifierBucket("power");
-  dispatchPhasePipeline(context, PHASES.ON_DAMAGE, { attacker, defender, move, attackerTag, defenderTag });
-
-  // 2. Resolve Modifiers
-  const finalPowerMultiplier = resolveModifiers(context.modifiers.power);
-  // Trace modifier resolution for later debugging (stacked abilities, weather, items)
-  if (context.trace && typeof context.trace.modifier === "function") {
-    context.trace.modifier("executeDamagePipeline", "power", finalPowerMultiplier);
-    context.trace.log(`power_bucket: ${JSON.stringify(context.modifiers.power)}`);
+  // 2. Resolve Modifiers from the phase-local bucket
+  const finalPowerMultiplier = resolveModifiers(powerBucket);
+  // Structured trace emit for modifier resolution
+  if (context.trace && typeof context.trace.emit === "function") {
+    context.trace.emit({ category: "MODIFIER", source: "executeDamagePipeline", payload: { bucket: "power", resolved: finalPowerMultiplier, entries: powerBucket } });
   }
   
   // 3. Calculate Math

@@ -102,32 +102,32 @@ export const WEATHER_EFFECTS = {
 
   [WEATHER_TYPES.RAIN]: {
     [PHASES.ON_DAMAGE]: (context, phaseContext) => {
-      if (phaseContext.move.type === "Water") {
-        context.modifiers.power.push({
-          source: WEATHER_TYPES.RAIN,
-          category: "WEATHER",
-          operation: MODIFIER_OPERATIONS.MULTIPLY,
-          value: 1.5,
-          priority: PRIORITY.WEATHER,
-          stage: MODIFIER_STAGES.MULTIPLICATIVE
-        });
-      } else if (phaseContext.move.type === "Fire") {
-        context.modifiers.power.push({
-          source: WEATHER_TYPES.RAIN,
-          category: "WEATHER",
-          operation: MODIFIER_OPERATIONS.MULTIPLY,
-          value: 0.5,
-          priority: PRIORITY.WEATHER,
-          stage: MODIFIER_STAGES.MULTIPLICATIVE
-        });
-      }
+        if (phaseContext.move.type === "Water") {
+          context.addModifier("power", {
+            source: WEATHER_TYPES.RAIN,
+            category: "WEATHER",
+            operation: MODIFIER_OPERATIONS.MULTIPLY,
+            value: 1.5,
+            priority: PRIORITY.WEATHER,
+            stage: MODIFIER_STAGES.MULTIPLICATIVE
+          });
+        } else if (phaseContext.move.type === "Fire") {
+          context.addModifier("power", {
+            source: WEATHER_TYPES.RAIN,
+            category: "WEATHER",
+            operation: MODIFIER_OPERATIONS.MULTIPLY,
+            value: 0.5,
+            priority: PRIORITY.WEATHER,
+            stage: MODIFIER_STAGES.MULTIPLICATIVE
+          });
+        }
     }
   },
 
   [WEATHER_TYPES.SUN]: {
     [PHASES.ON_DAMAGE]: (context, phaseContext) => {
       if (phaseContext.move.type === "Fire") {
-        context.modifiers.power.push({
+        context.addModifier("power", {
           source: WEATHER_TYPES.SUN,
           category: "WEATHER",
           operation: MODIFIER_OPERATIONS.MULTIPLY,
@@ -136,7 +136,7 @@ export const WEATHER_EFFECTS = {
           stage: MODIFIER_STAGES.MULTIPLICATIVE
         });
       } else if (phaseContext.move.type === "Water") {
-        context.modifiers.power.push({
+        context.addModifier("power", {
           source: WEATHER_TYPES.SUN,
           category: "WEATHER",
           operation: MODIFIER_OPERATIONS.MULTIPLY,
