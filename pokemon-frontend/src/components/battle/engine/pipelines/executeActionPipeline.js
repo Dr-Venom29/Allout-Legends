@@ -1,5 +1,5 @@
 import { BATTLE_ACTIONS } from "../battleActions";
-import { checkMoveHit } from "../battleAccuracy";
+import { checkMoveHit } from "../../battleAccuracy";
 import { createTextEvent, createWaitEvent } from "../../events/createEvent";
 import { PHASES } from "../triggerPhases";
 import { dispatchPhasePipeline } from "./dispatchPhasePipeline";

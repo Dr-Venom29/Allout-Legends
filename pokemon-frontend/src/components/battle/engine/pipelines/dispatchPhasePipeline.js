@@ -1,8 +1,10 @@
 
-import { STATUS_EFFECTS } from "../registries/statuses";
+import { STATUS_EFFECTS } from "../statusRegistry";
 import { WEATHER_EFFECTS } from "../weatherRegistry";
 import { dispatchAbilityPhase } from "../abilityRegistry";
-import { getEffectiveSpeed } from "../../../../battle/battleTurnOrder";
+import { getEffectiveSpeed } from "../../battleTurnOrder";
+import { computeCombatantOrder as computeCombatantOrderPolicy } from "../runtimePolicies/ordering";
+import { deepFreeze } from "../runtimePolicies/deepFreeze";
 
 /**
  * The sole orchestrator of phase evaluations.
@@ -24,8 +26,8 @@ export function dispatchPhasePipeline(context, phase, phaseContext = {}) {
       }
     }
 
-    // Create a shallow frozen snapshot of pCtx to reduce accidental top-level mutations by registries.
-    const safePctx = Object.freeze({ ...pCtx });
+    // Create a snapshot of pCtx. Support optional deep freeze via context.options.deepFreezePctx.
+    const safePctx = context.options?.deepFreezePctx ? deepFreeze(structuredClone(pCtx)) : Object.freeze({ ...pCtx });
 
     // Internal dispatch helpers keep separation of concerns inside this file.
     // Merge two phase results conservatively for now (OR blocked). Future: expand schema.
@@ -35,31 +37,11 @@ export function dispatchPhasePipeline(context, phase, phaseContext = {}) {
       return { blocked: Boolean(a.blocked) || Boolean(b.blocked) };
     }
 
-    // Determine a deterministic combatant evaluation order. Uses explicit ordering if provided,
-    // otherwise sorts by effective speed (descending), then by uuid/name fallback for stability.
+    // Compute combatant order using an external policy implementation. We augment entries
+    // with effectiveSpeed so policy implementations can rely on precomputed values.
     function computeCombatantOrder(combatantEntries = []) {
-      if (!Array.isArray(combatantEntries) || combatantEntries.length === 0) return [];
-      // If caller provided explicit order (array of tags), respect it
-      if (phaseContext.ordering && Array.isArray(phaseContext.ordering)) {
-        const map = new Map(combatantEntries.map(e => [e.tag, e]));
-        const ordered = [];
-        for (const tag of phaseContext.ordering) {
-          if (map.has(tag)) ordered.push(map.get(tag));
-        }
-        // Append any remaining not listed
-        for (const e of combatantEntries) if (!ordered.includes(e)) ordered.push(e);
-        return ordered;
-      }
-
-      // Default: sort by effective speed desc, then deterministic uuid/name
-      return [...combatantEntries].sort((a, b) => {
-        const sa = getEffectiveSpeed(a.c || {});
-        const sb = getEffectiveSpeed(b.c || {});
-        if (sa !== sb) return sb - sa; // higher speed first
-        const ua = a.c?.uuid || a.tag || a.c?.name || "";
-        const ub = b.c?.uuid || b.tag || b.c?.name || "";
-        return ua < ub ? -1 : ua > ub ? 1 : 0;
-      });
+      const entries = (combatantEntries || []).map(e => ({ ...e, effectiveSpeed: getEffectiveSpeed(e.c || {}) }));
+      return computeCombatantOrderPolicy(entries, phaseContext);
     }
     function dispatchWeather() {
       const weatherEffect = WEATHER_EFFECTS[ctx.state.weather.type];
@@ -71,24 +53,28 @@ export function dispatchPhasePipeline(context, phase, phaseContext = {}) {
 
     function dispatchAbilities() {
       let blocked = false;
+      // Dispatch abilities with explicit source/target semantics to avoid attacker/defender overload.
       if (phaseContext.attacker) {
-        const r = dispatchAbilityPhase(phase, ctx, { ...safePctx, abilityOwner: phaseContext.attacker });
+        const r = dispatchAbilityPhase(phase, ctx, { ...safePctx, abilityOwner: phaseContext.attacker, source: phaseContext.attacker, target: phaseContext.defender });
         if (r && r.blocked) blocked = true;
       }
       if (phaseContext.defender) {
-        const r = dispatchAbilityPhase(phase, ctx, { ...safePctx, abilityOwner: phaseContext.defender });
+        const r = dispatchAbilityPhase(phase, ctx, { ...safePctx, abilityOwner: phaseContext.defender, source: phaseContext.defender, target: phaseContext.attacker });
         if (r && r.blocked) blocked = true;
       }
       return blocked ? { blocked: true } : null;
     }
 
-    function dispatchStatuses() {
+    function collectCombatants() {
       const combatantsToCheck = [];
       if (pCtx.attacker) combatantsToCheck.push({ c: pCtx.attacker, tag: pCtx.attackerTag });
       if (pCtx.defender) combatantsToCheck.push({ c: pCtx.defender, tag: pCtx.defenderTag });
       if (pCtx.combatant) combatantsToCheck.push({ c: pCtx.combatant, tag: pCtx.targetTag });
+      return computeCombatantOrder(combatantsToCheck);
+    }
 
-      const ordered = computeCombatantOrder(combatantsToCheck);
+    function dispatchPersistentStatuses() {
+      const ordered = collectCombatants();
       const seen = new Set();
       let blocked = false;
       for (const { c, tag } of ordered) {
@@ -105,7 +91,14 @@ export function dispatchPhasePipeline(context, phase, phaseContext = {}) {
           const r = STATUS_EFFECTS[statusCondition][phase](ctx, { ...safePctx, combatant: c, subject: c, subjectTag: tag });
           if (r && r.blocked) blocked = true;
         }
+      }
+      return blocked ? { blocked: true } : null;
+    }
 
+    function dispatchVolatileStatuses() {
+      const ordered = collectCombatants();
+      let blocked = false;
+      for (const { c, tag } of ordered) {
         const volatileStatuses = c.volatileStatuses || [];
         for (const vStatus of volatileStatuses) {
           if (STATUS_EFFECTS[vStatus.condition]?.[phase]) {
@@ -117,18 +110,28 @@ export function dispatchPhasePipeline(context, phase, phaseContext = {}) {
       return blocked ? { blocked: true } : null;
     }
 
+    // Determine registry dispatch order (configurable)
+    const DEFAULT_REGISTRY_ORDER = ["weather", "abilities", "persistentStatuses", "volatileStatuses"];
+    const registryOrder = Array.isArray(phaseContext.registryOrder) ? phaseContext.registryOrder : DEFAULT_REGISTRY_ORDER;
+
     let result = null;
     try {
-      // Coordinator: invoke registries in stable order (weather -> abilities -> statuses)
-      // Each registry may return a PhaseResult; merge them using mergePhaseResults.
-      const wRes = dispatchWeather();
-      result = mergePhaseResults(result, wRes);
+      const dispatchTable = {
+        weather: dispatchWeather,
+        abilities: dispatchAbilities,
+        persistentStatuses: dispatchPersistentStatuses,
+        volatileStatuses: dispatchVolatileStatuses,
+      };
 
-      const aRes = dispatchAbilities();
-      result = mergePhaseResults(result, aRes);
-
-      const sRes = dispatchStatuses();
-      result = mergePhaseResults(result, sRes);
+      for (const registryName of registryOrder) {
+        const fn = dispatchTable[registryName];
+        if (!fn) {
+          if (ctx.trace && typeof ctx.trace.warn === "function") ctx.trace.warn(`[dispatchPhasePipeline] Unknown registry in order: ${registryName}`);
+          continue;
+        }
+        const r = fn();
+        result = mergePhaseResults(result, r);
+      }
     } finally {
       // Always restore original modifiers to prevent corruption on thrown errors.
       if (phaseContext.modifierBuckets) {

@@ -1,5 +1,5 @@
 import { buildTurnEvents } from "../src/components/battle/engine/buildTurnEvents.js";
-import { PHASES } from "../src/components/battle/engine/triggerPhases.js";
+// PHASES import not required in this script
 
 // Mock minimal dependencies
 const mockPokemon = (ability, type, hp, maxHp) => ({

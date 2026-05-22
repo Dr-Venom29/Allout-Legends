@@ -18,17 +18,23 @@ export class ReactionContext {
    * @param {Object} options
    * @param {number} [options.seed] - Optional seed for deterministic RNG. Auto-generated if omitted.
    */
-  constructor(initialState, { seed } = {}) {
+  constructor(initialState, { seed, ...options } = {}) {
     this.state = cloneBattleState(initialState); // Deep clone for immutability
     this.events = [];          // The flat semantic queue being generated
     this.depth = 0;
     this.pendingReactions = [];
-    
+    // Centralized telemetry
+    this.trace = new RuntimeTrace();
+
+    // Store options for runtime policies (e.g., deepFreeze in dispatch)
+    this.options = options || {};
+
     // Deterministic RNG — ALL randomness flows through this
-    const rngInstance = new SeededRNG(seed);
-    this.seed = rngInstance.seed;
-    this.rng = rngInstance.bound((source, roll) => this.trace.rngRoll(source, roll));
-    
+    const rngInstance = new SeededRNG(seed ?? Date.now());
+    this._rng = rngInstance;
+    this.rng = rngInstance.bound((source, roll) => {
+      if (this.trace && typeof this.trace.rngRoll === "function") this.trace.rngRoll(source, roll);
+    });
     // Structured modifier pipeline
     this.modifiers = {
       power: [],
@@ -38,8 +44,6 @@ export class ReactionContext {
       finalDamage: [],
     };
     
-    // Centralized telemetry
-    this.trace = new RuntimeTrace();
   }
 
   /** The seed used for this turn's RNG. Useful for replay serialization. */

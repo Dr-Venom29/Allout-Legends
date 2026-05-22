@@ -78,6 +78,9 @@ const PLAYER_POKEMON = {
 const DEFAULT_ENEMY_SPRITE = "/assets/pokemons/000.png";
 const DEFAULT_PLAYER_SPRITE = "/assets/pokemons/025.png";
 
+// Simple incremental seed counter to avoid impure global calls during render-time analysis.
+let TURN_SEED_COUNTER = 0;
+
 export default function Battle({
   exitBattle,
   mapId = "map1",
@@ -138,6 +141,7 @@ export default function Battle({
     initialWildPokemon ? (initialWildPokemon.currentHp ?? initialWildPokemon.hp) : 0
   );
   const [playerHp, setPlayerHp] = useState(resolvedPlayerPokemon.currentHp ?? resolvedPlayerPokemon.hp);
+  const [weather, setWeather] = useState({ type: "NONE", turnsRemaining: 0 });
   
   const [message, setMessage] = useState(
     initialWildPokemon
@@ -268,12 +272,12 @@ export default function Battle({
     const stateSnapshot = {
       playerPokemon: playerPokemonSnapshot,
       enemy: enemySnapshot,
-      weather: weatherSnapshot,
+      weather: { type: "NONE", turnsRemaining: 0 },
       playerAction: { type: BATTLE_ACTIONS.NONE },
       enemyAction: { type: BATTLE_ACTIONS.MOVE, move: enemyMoveSnapshot },
     };
 
-    const turnSeed = Date.now() ^ (Math.random() * 0x100000000 >>> 0);
+    const turnSeed = ++TURN_SEED_COUNTER;
     const { events, updatedState } = buildTurnEvents(stateSnapshot, turnSeed);
 
     // Keep React-side objects aligned for subsequent turns (statuses/PP/currentHp)
@@ -286,6 +290,9 @@ export default function Battle({
     }
     if (updatedState.enemy) {
       setEnemy(updatedState.enemy);
+    }
+    if (updatedState.weather) {
+      setWeather(updatedState.weather);
     }
 
     await startQueue([...(introEvents || []), ...events], null);
@@ -537,7 +544,7 @@ export default function Battle({
 
     // 1. Engine creates deterministic queue instantly
     // Generate a determinism seed at the React layer, maintaining true reproducible capabilities
-    const turnSeed = Date.now() ^ (Math.random() * 0x100000000 >>> 0);
+    const turnSeed = ++TURN_SEED_COUNTER;
     const { events, updatedState } = buildTurnEvents(stateSnapshot, turnSeed);
     let finalEvents = [...events];
     let finalProgressionUpdates = null;
@@ -566,6 +573,9 @@ export default function Battle({
     }
     if (updatedState.enemy) {
       setEnemy(updatedState.enemy);
+    }
+    if (updatedState.weather) {
+      setWeather(updatedState.weather);
     }
 
     // 4. Start Queue via Orchestrator Hook!
