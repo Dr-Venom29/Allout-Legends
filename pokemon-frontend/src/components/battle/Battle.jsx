@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import "./Battle.css";
 
 import {
@@ -13,9 +13,10 @@ import {
   getHpClass,
 } from "./battleUtils";
 
-import { createWildBattle, tryRun, performEnemyAttack } from "./battleLogic";
+import { createWildBattle, tryRun } from "./battleLogic";
 import { buildMove } from "../../data/pokemon/moveData";
 import { buildTurnEvents } from "./engine/buildTurnEvents";
+import { buildEnemyOnlyTurnEvents } from "./engine/buildEnemyOnlyTurnEvents";
 import { useBattleQueue } from "./hooks/useBattleQueue";
 import { processProgression } from "./engine/processProgression";
 import { replaceMove } from "../game/moveLearning";
@@ -23,6 +24,7 @@ import {
   attemptCapture,
   storeCapturedPokemon,
 } from "./captureLogic";
+import { createEndBattleEvent, createTextEvent, createWaitEvent } from "./events/createEvent";
 import {
   hasItem,
   consumeItem,
@@ -137,9 +139,6 @@ export default function Battle({
   );
   const [playerHp, setPlayerHp] = useState(resolvedPlayerPokemon.currentHp ?? resolvedPlayerPokemon.hp);
   
-  const playerHpRef = useRef(playerHp);
-  const enemyHpRef = useRef(enemyHp);
-  
   const [message, setMessage] = useState(
     initialWildPokemon
       ? `A wild ${initialWildPokemon.name} (Lv.${initialWildPokemon.level}) appeared!`
@@ -160,14 +159,8 @@ export default function Battle({
     mutateProgressionUpdates,
   } = useBattleQueue({
     setMessage,
-    setPlayerHp: (hp) => {
-      setPlayerHp(hp);
-      playerHpRef.current = hp;
-    },
-    setEnemyHp: (hp) => {
-      setEnemyHp(hp);
-      enemyHpRef.current = hp;
-    },
+    setPlayerHp,
+    setEnemyHp,
     onFaint: () => {},
     onEndBattle: () => {},
     onQueueComplete: (events, progressionUpdates) => {
@@ -183,11 +176,15 @@ export default function Battle({
       // 2. Determine next phase
       const didWin = events.some(e => e.type === "END_BATTLE" && e.payload?.reason === "win");
       const didLose = events.some(e => e.type === "END_BATTLE" && e.payload?.reason === "lose");
+      const didRun = events.some(e => e.type === "END_BATTLE" && e.payload?.reason === "run");
+      const didCatch = events.some(e => e.type === "END_BATTLE" && e.payload?.reason === "catch");
 
       if (didWin) {
         setTimeout(() => finishBattle(), BATTLE_END_DELAY);
       } else if (didLose) {
         handlePlayerFainted();
+      } else if (didRun || didCatch) {
+        setTimeout(() => finishBattle({ reason: didRun ? "run" : "catch" }), BATTLE_END_DELAY);
       } else {
         // Revert to action phase
         setPhase("action");
@@ -201,7 +198,7 @@ export default function Battle({
     if (party && battlePartyIndex >= 0 && battlePartyIndex < party.length) {
       setParty((prev) => {
         const next = Array.isArray(prev) ? [...prev] : [];
-        const hpVal = playerHpRef.current ?? (resolvedPlayerPokemon.currentHp ?? resolvedPlayerPokemon.hp ?? 0);
+        const hpVal = playerHp ?? (resolvedPlayerPokemon.currentHp ?? resolvedPlayerPokemon.hp ?? 0);
         next[battlePartyIndex] = {
           ...next[battlePartyIndex],
           hp: hpVal,
@@ -223,27 +220,29 @@ export default function Battle({
     }
   }, [enemy, onPokemonSeen]);
 
-  useEffect(() => {
-    playerHpRef.current = playerHp;
-  }, [playerHp]);
-
-  useEffect(() => {
-    enemyHpRef.current = enemyHp;
-  }, [enemyHp]);
-
-  // Pick a random move for the enemy (used before turn resolution)
+  // Enemy move selection must be render-pure; use a deterministic picker.
+  // This intentionally avoids Math.random() to keep results stable across re-renders.
   const pickEnemyMove = () => {
     if (!enemy) return buildMove("Tackle", "Normal");
     const moves = Array.isArray(enemy.moves) && enemy.moves.length > 0
       ? enemy.moves
       : [buildMove("Tackle", "Normal")];
-    return moves[Math.floor(Math.random() * moves.length)];
+
+    // Deterministic-by-default: always pick the first available move.
+    // This avoids render-time impurity warnings and keeps sequencing stable.
+    return moves[0];
   };
 
   // Execute one side's attack and return true if the defender fainted
-  const handlePlayerFainted = () => {
-    if (hasUsablePokemon(party, battlePartyIndex)) {
-      const currentPokemonName = resolvedPlayerPokemon.name;
+  const handlePlayerFainted = (opts = {}) => {
+    const {
+      partySnapshot = party,
+      partyIndexSnapshot = battlePartyIndex,
+      pokemonNameSnapshot = resolvedPlayerPokemon.name,
+    } = opts;
+
+    if (hasUsablePokemon(partySnapshot, partyIndexSnapshot)) {
+      const currentPokemonName = pokemonNameSnapshot;
       setMessage(`${currentPokemonName} fainted!`);
       setTimeout(() => {
         setIsForcedSwitch(true);
@@ -255,22 +254,40 @@ export default function Battle({
     }
   };
 
-  // Legacy wrapper — still used by RUN fail, BAG fail, and SWITCH
-  const enemyAttack = () => {
-    if (!enemy) return;
-    const result = performEnemyAttack(enemy, playerHpRef.current, resolvedPlayerPokemon);
-    setPlayerHp(result.newHp);
-    setMessage(result.message);
-    if (result.playerAfterStatus) {
+  const startEnemyOnlyQueue = async (opts = {}) => {
+    const {
+      introEvents = [],
+      playerPokemonSnapshot = resolvedPlayerPokemon,
+      enemySnapshot = enemy,
+      enemyMoveSnapshot = pickEnemyMove(),
+      partyIndexSnapshot = battlePartyIndex,
+    } = opts;
+
+    if (!enemySnapshot) return;
+
+    const stateSnapshot = {
+      playerPokemon: playerPokemonSnapshot,
+      enemy: enemySnapshot,
+      playerMove: { name: "NO_OP", power: 0, type: "Normal", category: "status", accuracy: null, currentPP: null, maxPP: null, priority: 0 },
+      enemyMove: enemyMoveSnapshot,
+    };
+
+    const turnSeed = Date.now() ^ (Math.random() * 0x100000000 >>> 0);
+    const { events, updatedState } = buildEnemyOnlyTurnEvents(stateSnapshot, turnSeed);
+
+    // Keep React-side objects aligned for subsequent turns (statuses/PP/currentHp)
+    if (updatedState.playerPokemon) {
       setParty((prev) => {
         const next = Array.isArray(prev) ? [...prev] : [];
-        next[battlePartyIndex] = result.playerAfterStatus;
+        next[partyIndexSnapshot] = updatedState.playerPokemon;
         return next;
       });
     }
-    if (result.playerDefeated) {
-      handlePlayerFainted();
+    if (updatedState.enemy) {
+      setEnemy(updatedState.enemy);
     }
+
+    await startQueue([...(introEvents || []), ...events], null);
   };
 
   const handleAction = (idx) => {
@@ -304,13 +321,22 @@ export default function Battle({
 
     if (action === "RUN") {
       if (tryRun()) {
-        setMessage("Got away safely!");
-        setTimeout(() => finishBattle(), RUN_SUCCESS_DELAY);
-      } else {
-        setMessage("Couldn't escape!");
-        setPhase("action");
-        enemyAttack();
+        setPhase("message");
+        startQueue([
+          createTextEvent("Got away safely!"),
+          createWaitEvent(RUN_SUCCESS_DELAY),
+          createEndBattleEvent("run"),
+        ], null);
+        return;
       }
+
+      setPhase("message");
+      startEnemyOnlyQueue({
+        introEvents: [createTextEvent("Couldn't escape!"), createWaitEvent(500)],
+      }).then(() => {
+        // After enemy-only resolution, the queue completion handler will put us back into action.
+      });
+      return;
     }
   };
 
@@ -340,8 +366,13 @@ export default function Battle({
     // Consume one
     setInventory((prev) => consumeItem(prev, itemId));
 
-    // Friendly message
-    setMessage(`You threw a ${item.name}!`);
+    setPhase("message");
+
+    // Friendly message (queue-driven)
+    const throwEvents = [
+      createTextEvent(`You threw a ${item.name}!`),
+      createWaitEvent(700),
+    ];
 
     // Attempt capture using item metadata
     const success = attemptCapture(enemy, enemyHp, item);
@@ -356,18 +387,21 @@ export default function Battle({
         onPokemonCaught?.(numericId);
       }
 
-      setMessage(`Gotcha! ${enemy.name} was caught!`);
-      setTimeout(() => finishBattle(), BATTLE_END_DELAY);
+      startQueue([
+        ...throwEvents,
+        createTextEvent(`Gotcha! ${enemy.name} was caught!`),
+        createWaitEvent(1200),
+        createEndBattleEvent("catch"),
+      ], null);
       return;
     }
 
-    // Not caught — enemy may attack
-    setTimeout(() => {
-      setMessage("Oh no! The Pokémon broke free!");
-      enemyAttack();
-      setPhase("action");
-      setSelectedAction(0);
-    }, PLAYER_ATTACK_DELAY);
+    // Not caught — enemy retaliates as an engine-owned enemy-only turn
+    startEnemyOnlyQueue({
+      introEvents: [...throwEvents, createTextEvent("Oh no! The Pokémon broke free!"), createWaitEvent(PLAYER_ATTACK_DELAY)],
+    }).then(() => {
+      // queue completion handler will return to action
+    });
   };
 
   const handleSwitchPokemon = (newIndex) => {
@@ -396,23 +430,31 @@ export default function Battle({
 
     // Show switch message
     setPhase("message");
-    setMessage(`Go! ${selectedPokemon.name}!`);
 
     // Check if this is a forced switch (due to faint)
     if (isForcedSwitch) {
       // Forced switch: return to action menu without enemy attack
       setIsForcedSwitch(false);
-      setTimeout(() => {
-        setPhase("action");
-        setSelectedAction(0);
-      }, 1500);
+      startQueue([
+        createTextEvent(`Go! ${selectedPokemon.name}!`),
+        createWaitEvent(1200),
+      ], null);
     } else {
       // Manual switch: the enemy attacks (consumes player's turn)
-      setTimeout(() => {
-        setPhase("action");
-        setSelectedAction(0);
-        enemyAttack();
-      }, 1500);
+      const startingHpSnapshot = selectedPokemon.currentHp ?? selectedPokemon.hp ?? selectedPokemon.maxHp ?? 0;
+      const playerPokemonSnapshot = {
+        ...selectedPokemon,
+        currentHp: startingHpSnapshot,
+      };
+
+      startEnemyOnlyQueue({
+        introEvents: [createTextEvent(`Go! ${selectedPokemon.name}!`), createWaitEvent(1200)],
+        playerPokemonSnapshot,
+        enemySnapshot: enemy,
+        partyIndexSnapshot: newIndex,
+      }).then(() => {
+        // queue completion handler will return to action
+      });
     }
   };
 
@@ -492,12 +534,14 @@ export default function Battle({
     };
 
     // 1. Engine creates deterministic queue instantly
-    const { events, updatedState } = buildTurnEvents(stateSnapshot);
+    // Generate a determinism seed at the React layer, maintaining true reproducible capabilities
+    const turnSeed = Date.now() ^ (Math.random() * 0x100000000 >>> 0);
+    const { events, updatedState } = buildTurnEvents(stateSnapshot, turnSeed);
     let finalEvents = [...events];
     let finalProgressionUpdates = null;
 
     // 2. If won, compute ALL progression instantly too!
-    const didWin = events.some(e => e.type === "END_BATTLE" && e.reason === "win");
+    const didWin = events.some(e => e.type === "END_BATTLE" && e.payload?.reason === "win");
     if (didWin) {
       // Remove END_BATTLE event since progression queue will take over the ending sequence
       finalEvents = finalEvents.filter(e => e.type !== "END_BATTLE");
@@ -506,7 +550,7 @@ export default function Battle({
         updatedState.playerPokemon,
         updatedState.enemy
       );
-      finalEvents = [...finalEvents, ...progressionQueue, { type: "END_BATTLE", reason: "win" }];
+      finalEvents = [...finalEvents, ...progressionQueue, createEndBattleEvent("win")];
       finalProgressionUpdates = progressionUpdates;
     }
 

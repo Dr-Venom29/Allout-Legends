@@ -1,22 +1,47 @@
+import { SeededRNG } from "./SeededRNG";
+import { RuntimeTrace } from "./RuntimeTrace";
+
 const MAX_REACTION_DEPTH = 10;
 
 /**
  * ReactionContext
  * 
- * Manages controlled event insertion during the deterministic evaluation of a battle turn.
- * Prevents direct queue mutation and infinite loop explosions.
+ * The central orchestration owner for a battle turn.
+ * Manages deterministic RNG, controlled event insertion, modifier pipelines,
+ * structured telemetry, and recursion protection.
  */
 export class ReactionContext {
-  constructor(initialState) {
+  /**
+   * @param {Object} initialState - { playerPokemon, enemy, weather, playerMove, enemyMove }
+   * @param {Object} options
+   * @param {number} [options.seed] - Optional seed for deterministic RNG. Auto-generated if omitted.
+   */
+  constructor(initialState, { seed } = {}) {
     this.state = initialState; // { playerPokemon, enemy, weather, etc }
     this.events = [];          // The flat semantic queue being generated
     this.depth = 0;
     this.pendingReactions = [];
     
-    // Shared execution context for modifiers
-    this.damageModifiers = {
-      powerMultiplier: 1.0
+    // Deterministic RNG — ALL randomness flows through this
+    this._rng = new SeededRNG(seed);
+    this.rng = this._rng.bound();
+    
+    // Structured modifier pipeline
+    this.modifiers = {
+      power: [],
+      crit: [],
+      accuracy: [],
+      defense: [],
+      finalDamage: [],
     };
+    
+    // Centralized telemetry
+    this.trace = new RuntimeTrace();
+  }
+
+  /** The seed used for this turn's RNG. Useful for replay serialization. */
+  get seed() {
+    return this._rng.seed;
   }
 
   /**
@@ -33,11 +58,11 @@ export class ReactionContext {
     }
 
     if (this.depth >= MAX_REACTION_DEPTH) {
-      console.warn(`[ReactionContext] ⚠️ MAX_REACTION_DEPTH reached! Truncating infinite reaction chain from source: ${source}`);
+      this.trace.warn(`MAX_REACTION_DEPTH reached! Truncating infinite reaction chain from source: ${source}`);
       return;
     }
 
-    console.log(`[ReactionContext] ⚡ Reaction Emitted (Source: ${source} | Phase: ${originPhase} | Priority: ${priority})`, events);
+    this.trace.reaction(source, originPhase, priority);
     this.pendingReactions.push({ priority, events, source, originPhase });
   }
 
@@ -47,12 +72,11 @@ export class ReactionContext {
    * 
    * @param {string} phase - The PHASES constant being triggered
    * @param {Function} evaluator - A callback where registries are checked
+   * @param {Object} phaseContext - Data available to registries during this phase
    */
   dispatchPhase(phase, evaluator, phaseContext = {}) {
     this.depth++;
-    
-    // Only group logs if we are at the top level to avoid nested spam, or just group always.
-    console.group(`[PHASE] ${phase}`);
+    this.trace.phaseStart(phase);
 
     // Clear previous pending reactions
     this.pendingReactions = [];
@@ -68,7 +92,7 @@ export class ReactionContext {
       this.events.push(...reaction.events);
     }
     
-    console.groupEnd();
+    this.trace.phaseEnd(phase);
     this.depth--;
   }
 
@@ -76,5 +100,12 @@ export class ReactionContext {
   // (Core engine events are linear and shouldn't compete with reactive effects)
   pushCoreEvent(event) {
     this.events.push(event);
+  }
+
+  // Batch push for arrays of core events (e.g. from applyDamage)
+  pushCoreEvents(eventArray) {
+    for (const event of eventArray) {
+      this.events.push(event);
+    }
   }
 }

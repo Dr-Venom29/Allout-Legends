@@ -4,7 +4,7 @@ A modern, highly-modular, browser-based Pokémon-style RPG engine built with Rea
 
 **AllOut Legends** isn't just a basic React game—it is an architecturally layered, headless-capable RPG runtime featuring a deterministic-orchestration event-queue battle system, a persistent World/Map Editor, and robust systems modeled after Gen 4 Pokémon mechanics.
 
-For a deep dive into the deterministic battle runtime architecture, see: [pokemon-frontend/docs/battle-engine-architecture.md](pokemon-frontend/docs/battle-engine-architecture.md).
+For a deep dive into the deterministic battle runtime architecture, see: [Battle Engine Architecture](./docs/battle-engine-architecture.md).
 
 ---
 
@@ -46,13 +46,12 @@ Why determinism matters: a deterministic orchestration architecture enables repr
 
 Authoritative state ownership: gameplay state is owned exclusively by the semantic runtime. Presentation systems are never allowed to mutate gameplay state directly.
 
-### Current Limitations (Technical Honesty)
+### Determinism & Technical State
 
-The architecture is designed to support deterministic replay and multiplayer synchronization, though networking infrastructure is not implemented yet.
-
-Determinism is also a design target, not a current guarantee:
-- RNG still defaults to `Math.random()` in multiple places.
-- Event timestamps use `Date.now()`.
+Determinism is now a core feature of the battle engine:
+- The engine uses a unified `SeededRNG` (Mulberry32) for all core mechanics (accuracy, crits, speed ties, status rolls).
+- A central `RuntimeTrace` telemetry layer logs all orchestrated actions.
+- A structured modifier pipeline guarantees predictable mathematical compounding.
 
 ---
 
@@ -134,11 +133,14 @@ Implemented (in-repo today):
 - Weather registry infrastructure (Sandstorm/Hail end-turn ticks; Rain/Sun power modifiers)
 - Dual-phase progression handoff (progression computed before playback; commit after queue completion)
 
+- Ability registry infrastructure (passive ON_DAMAGE modifiers like Blaze/Torrent)
+- Structured modifier pipeline (centralized modifier resolution via `resolvePowerModifiers()`)
+- Deterministic seeded RNG (Mulberry32) integration for core randomness
+- Centralized telemetry layer (`RuntimeTrace`) for debugging orchestrations
+
 Planned / partial:
 - Held items (priority slot exists, registry not implemented)
-- Abilities
 - Terrains / field effects
-- Full replay determinism (seeded RNG + stable time)
 - Multiplayer synchronization / networking backend
 
 ---

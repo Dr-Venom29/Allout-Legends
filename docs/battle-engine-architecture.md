@@ -9,8 +9,6 @@ The fundamental philosophy of the battle engine is simple:
 
 This strict decoupling ensures that complex game logic, such as damage calculations, status effects, and turn sequencing, is completely isolated from React's rendering lifecycle. The UI becomes a pure presentation layer consuming engine output.
 
-Note on determinism: the architecture is designed to support replay determinism (seeded RNG + stable time), but the current implementation still uses `Math.random()` (in several places) and `Date.now()` for event timestamps, so replays are not deterministic by default.
-
 ## 2. The Monolith Problem (BEFORE)
 
 In the legacy model, `Battle.jsx` was a massive monolith. Orchestration relied on nested `setTimeout` chains that quickly became impossible to scale once weather, statuses, and progression systems began interacting simultaneously.
@@ -202,9 +200,9 @@ This ensures:
 - **Scalability**: The engine doesn't need to know *what* an effect does, only *when* to ask it.
 - **Deterministic Orchestration (within a run)**: Reactions flow into `ReactionContext`, are sorted by priority (`PRIORITY.*`), and are flushed into the queue in a predictable order.
 
-Implementation note: the repo currently has `weatherRegistry.js` and `statusRegistry.js`. A dedicated item registry is implied by `PRIORITY.ITEM` but is not implemented yet.
+Implementation note: the repo currently has `weatherRegistry.js`, `statusRegistry.js`, and `abilityRegistry.js`. A dedicated item registry is implied by `PRIORITY.ITEM` but is not implemented yet.
 
-Future systems such as abilities, held items, terrains, and field effects are expected to integrate through the same phase-driven registry architecture.
+Future systems such as held items, terrains, and field effects are expected to integrate through the same phase-driven registry architecture.
 
 ## 8. Centralized Mutation Pipeline
 
@@ -218,29 +216,72 @@ In addition, runtime safety is guaranteed through `assertValidBattleState()`, wh
 
 ## 9. Telemetry / Debugging
 
-The engine includes lightweight runtime tracing utilities for debugging complex reactive chains and validating orchestration behavior:
-- phase tracing via grouped logs per `dispatchPhase(...)`
-- source + origin-phase tracing on emitted reactions (`source`, `originPhase`, `priority`)
-- recursion warnings when reaction depth limits are reached
-- strict event shape validation before playback (queue-time validation)
+All runtime diagnostics are routed through a centralized `RuntimeTrace` layer. This replaces scattered `console.group` / `console.log` calls with a structured, inspectable log.
 
-## 10. Headless Runtime & Replay Determinism
+The trace captures:
+- **Phase boundaries** (`PHASE_START` / `PHASE_END`) for every `dispatchPhase` call
+- **Reaction emissions** with source, origin phase, and priority metadata
+- **Modifier applications** with source, category, and multiplier value
+- **Warnings** (e.g. recursion depth limits)
+- **General engine logs**
+
+In development mode, `finalizeContext()` calls `trace.dump()` to output the structured log to the browser console. The raw `trace.entries` array is also returned alongside the semantic queue for programmatic inspection.
+
+## 10. Seeded RNG & Replay Determinism
+
+All randomness in the engine flows through a `SeededRNG` instance (Mulberry32 algorithm) owned by `ReactionContext`. This includes:
+- Critical hit rolls
+- Accuracy checks
+- Status effect rolls (paralysis, freeze thaw, confusion)
+- Speed tie coin flips
+- Damage random factor (85-100%)
+
+The seed is auto-generated per turn and returned in the finalized output (`result.seed`). To replay a turn deterministically, pass the same seed back into the `ReactionContext` constructor.
+
+The `rng` is exposed as a bound function matching the `Math.random()` call signature, so all existing consumer functions (`calculateDamage`, `checkMoveHit`, `determineTurnOrder`, status hooks) accept it transparently.
+
+> **Note:** Some higher-level battle logic outside the engine (e.g. `battleLogic.js`, `captureLogic.js`) still uses `Math.random()` directly. These will be migrated as those systems are brought under engine ownership.
+
+## 11. Modifier Pipeline
+
+The engine uses a structured modifier pipeline instead of ad-hoc scalar multiplication:
+
+```javascript
+context.modifiers = {
+  power: [],      // Weather, abilities, items, STAB (future)
+  crit: [],       // Critical hit modifiers (future)
+  accuracy: [],   // Accuracy stage modifiers (future)
+  defense: [],    // Defense modifiers (future)
+  finalDamage: [], // Final damage modifiers like Life Orb (future)
+}
+```
+
+Registries push modifier objects with provenance:
+```javascript
+context.modifiers.power.push({ source: "BLAZE", multiplier: 1.5 });
+context.modifiers.power.push({ source: "RAIN", multiplier: 1.5 });
+```
+
+Before damage calculation, a centralized `resolvePowerModifiers()` reduces the array into a single scalar. This is the **only** authority for computing the final multiplier.
+
+This architecture guarantees:
+- **Stacking correctness**: Multiple modifiers compose predictably
+- **Telemetry**: Every modifier's source is traceable
+- **Ordering control**: Future priority-based resolution is trivial to add
+- **Single authority**: No ad-hoc multiplication scattered across the codebase
+
+## 12. Headless Runtime
 
 The battle engine is written as a synchronous evaluator (`buildTurnEvents`) that can run without React. This enables headless usage (tests, background workers, server simulation) as long as the inputs are plain JS objects.
 
-Replay determinism is a *design target*, but it is not fully true in the current repo:
-- Event timestamps come from `Date.now()`.
-- RNG currently defaults to `Math.random()` in several places (e.g. accuracy, speed-tie coin flips, damage random factor, plus some higher-level battle logic outside the engine).
-- Some status hooks call `context.rng()` today, but `ReactionContext` does not currently define `rng()`.
+Because orchestration relies entirely on JavaScript data structures and pure functions, the battle engine can run on a Node.js server, in a unit test suite, or as a background worker. This separation completely eliminates visual side effects from corrupting game state.
 
-Because orchestration relies entirely on JavaScript data structures and pure functions, the battle engine could theoretically be run on a Node.js server, in a unit test suite, or as a background worker. This separation completely eliminates visual side effects from corrupting game state.
-
-This unlocks incredibly powerful technical implications:
+This unlocks powerful technical implications:
 - **AI Battle Simulations**: Thousands of turns can be simulated instantly without rendering.
-- **Deterministic Testing (when fully seeded)**: Scenarios can be verified repeatably once RNG and time are made injectable.
-- **Battle Replay Systems (when fully seeded)**: Replays become possible once RNG and timestamps are stabilized.
+- **Deterministic Testing**: Scenarios can be verified with exact reproducibility via seeded RNG.
+- **Battle Replay Systems**: Any turn can be perfectly recreated by passing the same inputs and seed.
 
-## 11. Why This Architecture Exists
+## 13. Why This Architecture Exists
 
 This architecture exists to solve the **N+1 Complexity Problem** in game development.
 

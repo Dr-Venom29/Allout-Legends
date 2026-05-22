@@ -102,9 +102,9 @@ export const WEATHER_EFFECTS = {
   [WEATHER_TYPES.RAIN]: {
     [PHASES.ON_DAMAGE]: (context, phaseContext) => {
       if (phaseContext.move.type === "Water") {
-        context.damageModifiers.powerMultiplier *= 1.5;
+        context.modifiers.power.push({ source: WEATHER_TYPES.RAIN, multiplier: 1.5 });
       } else if (phaseContext.move.type === "Fire") {
-        context.damageModifiers.powerMultiplier *= 0.5;
+        context.modifiers.power.push({ source: WEATHER_TYPES.RAIN, multiplier: 0.5 });
       }
     }
   },
@@ -112,9 +112,9 @@ export const WEATHER_EFFECTS = {
   [WEATHER_TYPES.SUN]: {
     [PHASES.ON_DAMAGE]: (context, phaseContext) => {
       if (phaseContext.move.type === "Fire") {
-        context.damageModifiers.powerMultiplier *= 1.5;
+        context.modifiers.power.push({ source: WEATHER_TYPES.SUN, multiplier: 1.5 });
       } else if (phaseContext.move.type === "Water") {
-        context.damageModifiers.powerMultiplier *= 0.5;
+        context.modifiers.power.push({ source: WEATHER_TYPES.SUN, multiplier: 0.5 });
       }
     }
   }
