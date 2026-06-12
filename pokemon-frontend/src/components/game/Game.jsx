@@ -8,9 +8,9 @@ import { TILESET_MAX_ID } from "../../data/tilesetMeta";
 import { map1Scales } from "../../data/maps/map1Scales";
 import { map2Scales } from "../../data/maps/map2Scales";
 import { STORAGE_KEYS, saveJSON } from "./systems/storage";
-import { handleMovement } from "./systems/movement";
+import { useGameLoop } from "./engine/useGameLoop";
+import { handleTileChange } from "./systems/handleTileChange";
 import { handlePaint } from "./systems/paint";
-import { setupKeyboard } from "./systems/keyboard";
 import {
   applySavedOverridesToMaps,
   loadSavedPaintLog,
@@ -82,7 +82,7 @@ export default function Game() {
 
   const [currentMap, setCurrentMap] = useState(getInitialCurrentMap);
 
-  const [pressedKey, setPressedKey] = useState(null);
+
 
   const [transition, setTransition] = useState(false);
   const transitionLockRef = useRef(false);
@@ -157,27 +157,6 @@ export default function Game() {
 
   const current = maps[currentMap];
 
-  const camera = useMemo(() => {
-    const mapW = current[0].length * TILE;
-    const mapH = current.length * TILE;
-
-    return {
-      x: Math.max(
-        0,
-        Math.min(
-          player.x * TILE - VIEWPORT_W / 2,
-          mapW - VIEWPORT_W
-        )
-      ),
-      y: Math.max(
-        0,
-        Math.min(
-          player.y * TILE - VIEWPORT_H / 2,
-          mapH - VIEWPORT_H
-        )
-      ),
-    };
-  }, [player, current]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PLAYER_POS, JSON.stringify(player));
@@ -259,11 +238,15 @@ export default function Game() {
     []
   );
 
-  const handleMove = useCallback(
-    (key) => {
-      handleMovement({
-        key,
-        player,
+  const { mapRef, playerContainerRef, playerSpriteRef, simulateKey } = useGameLoop({
+    map: current,
+    initialPlayerPos: player,
+    VIEWPORT_W,
+    VIEWPORT_H,
+    TILE,
+    onTileChange: (newPos) => {
+      handleTileChange({
+        newPos,
         current,
         currentMap,
         gameState,
@@ -276,8 +259,17 @@ export default function Game() {
         setBattleSeed,
       });
     },
-    [player, current, currentMap, gameState, paintMode]
-  );
+    onAction: (e) => {
+      const key = e.key.toLowerCase();
+      if (key === "p") setPaintMode((prev) => !prev);
+      if (key === "[" && paintMode) setSelectedTileId((prev) => Math.max(0, prev - 1));
+      if (key === "]" && paintMode) setSelectedTileId((prev) => Math.min(TILESET_MAX_ID, prev + 1));
+      if ((e.ctrlKey || e.metaKey) && key === "s") {
+        e.preventDefault();
+        handleSaveToLocalStorage();
+      }
+    }
+  });
 
   const handleTilePaint = useCallback(
     (x, y, options = { action: "paint", shiftKey: false }) => {
@@ -321,33 +313,26 @@ export default function Game() {
     setFillStart,
   });
 
-  useEffect(() => {
-    return setupKeyboard({
-      paintMode,
-      setPaintMode,
-      handleSave: handleSaveToLocalStorage,
-      setSelectedTileId,
-      handleMove,
-      setPressedKey,
-      TILESET_MAX_ID,
-    });
-  }, [paintMode, handleSaveToLocalStorage, handleMove]);
+  // Keyboard is now handled via useGameLoop and InputManager
 
-  const handleDpad = (dir) => {
+  const handleDpadDown = (dir) => {
     const keyMap = {
       up: "ArrowUp",
       down: "ArrowDown",
       left: "ArrowLeft",
       right: "ArrowRight",
     };
+    simulateKey(keyMap[dir], true);
+  };
 
-    setPressedKey(keyMap[dir]);
-
-    handleMove(keyMap[dir]);
-
-    setTimeout(() => {
-      setPressedKey(null);
-    }, 150);
+  const handleDpadUp = (dir) => {
+    const keyMap = {
+      up: "ArrowUp",
+      down: "ArrowDown",
+      left: "ArrowLeft",
+      right: "ArrowRight",
+    };
+    simulateKey(keyMap[dir], false);
   };
 
   const currentPaintLines = buildCurrentPaintLines(paintLog, currentMap);
@@ -426,18 +411,13 @@ export default function Game() {
               <div className="map-stage">
                 <Map
                   map={current}
-                  camera={camera}
-                  playerPos={player}
                   paintMode={paintMode}
                   onTileClick={handleTilePaint}
-                  tileScales={
-                    tileScales[currentMap] || {}
-                  }
-                  onTileHover={
-                    paintMode
-                      ? setHoveredTile
-                      : null
-                  }
+                  tileScales={tileScales[currentMap] || {}}
+                  onTileHover={paintMode ? setHoveredTile : null}
+                  mapRef={mapRef}
+                  playerContainerRef={playerContainerRef}
+                  playerSpriteRef={playerSpriteRef}
                 />
 
                 {transition && (
@@ -471,8 +451,8 @@ export default function Game() {
               currentMap={currentMap}
               mapNames={MAP_NAMES}
               player={player}
-              pressedKey={pressedKey}
-              handleDpad={handleDpad}
+              handleDpadDown={handleDpadDown}
+              handleDpadUp={handleDpadUp}
               exportStatus={exportStatus}
               fillStart={fillStart}
               currentPaintLines={currentPaintLines}

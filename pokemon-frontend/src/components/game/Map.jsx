@@ -1,21 +1,20 @@
 import Tile from "./Tile";
+import PlayerSprite from "./sprites/PlayerSprite";
 
 const TILE_SIZE = 40;
-const PLAYER_AVATAR_SRC = "/assets/heros/Alpha_Coder.png";
 
 export default function Map({
   map,
-  camera,
-  playerPos,
   paintMode = false,
   onTileClick,
   tileScales = {},
   onTileHover,
+  mapRef,
+  playerContainerRef,
+  playerSpriteRef
 }) {
   if (!map?.length || !map[0]?.length) return null;
 
-  const playerScreenX = playerPos.x * TILE_SIZE - camera.x + TILE_SIZE / 2;
-  const playerScreenY = playerPos.y * TILE_SIZE - camera.y + TILE_SIZE / 2;
 
   const createPaintHandler = (x, y) => (event) => {
     event.preventDefault();
@@ -30,11 +29,10 @@ export default function Map({
   return (
     <div className={`viewport ${paintMode ? "paint-mode" : ""}`}>
       <div
+        ref={mapRef}
         className="map"
         style={{
           gridTemplateColumns: `repeat(${map[0].length}, ${TILE_SIZE}px)`,
-          transform: `translate(${-camera.x}px, ${-camera.y}px)`,
-          transition: "transform 0.14s cubic-bezier(0.22, 0.61, 0.36, 1)",
           willChange: "transform",
         }}
       >
@@ -55,17 +53,10 @@ export default function Map({
       </div>
 
       <div
+        ref={playerContainerRef}
         className="player"
-        style={{
-          left: `${playerScreenX}px`,
-          top: `${playerScreenY}px`
-        }}
       >
-        <img
-          className="player-avatar"
-          src={PLAYER_AVATAR_SRC}
-          alt="Player avatar"
-        />
+        <PlayerSprite ref={playerSpriteRef} />
       </div>
     </div>
   );

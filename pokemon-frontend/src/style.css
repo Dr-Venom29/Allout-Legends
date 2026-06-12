@@ -94,19 +94,21 @@ body {
 
 .player {
   position: absolute;
-  width: 90px;
-  height: 87px;
-  transform: translate(-50%, -66%);
+  width: 64px;
+  height: 64px;
+  transform: translate(-50%, -75%);
   z-index: 10;
   pointer-events: none;
+  left: 0;
+  top: 0;
 }
 
 .player-avatar {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  width: 64px;
+  height: 64px;
   image-rendering: pixelated;
   filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35));
+  background-repeat: no-repeat;
 }
 
 .deluge-panel {
@@ -177,6 +179,12 @@ body {
   height: 130px;
 }
 
+.pad-dpad {
+  position: relative;
+  width: 130px;
+  height: 130px;
+}
+
 .pad-btn {
   position: absolute;
   width: 32px;
@@ -222,21 +230,20 @@ body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 52px;
-  height: 52px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  border: 3px solid #151517;
-  background: #ececee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: 2px solid #2f2f34;
+  background: #c8c9ce;
+  pointer-events: none;
 }
 
-.pad-center img {
-  width: 38px;
-  height: 38px;
-  object-fit: contain;
-  image-rendering: pixelated;
+.pad-center .pad-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #9a9ba0;
+  margin: auto;
 }
 
 .keyboard-toggle {

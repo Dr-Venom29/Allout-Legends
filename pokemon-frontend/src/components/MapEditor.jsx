@@ -24,8 +24,8 @@ export default function MapEditor({
   player,
   terrainName,
   totalSavedEdits,
-  pressedKey,
-  handleDpad,
+  handleDpadDown,
+  handleDpadUp,
   // per-position scale props
   pendingScale,
   setPendingScale,
@@ -77,14 +77,42 @@ export default function MapEditor({
       </div>
 
       <div className="controls-pad">
-        <div className="pad-grid">
-          <button className={`pad-btn up ${pressedKey === "ArrowUp" ? "pressed" : ""}`} onClick={() => handleDpad("up")} aria-label="Move up" />
-          <button className={`pad-btn left ${pressedKey === "ArrowLeft" ? "pressed" : ""}`} onClick={() => handleDpad("left")} aria-label="Move left" />
+        <div className="pad-dpad">
+          <button 
+            className="pad-btn up" 
+            onMouseDown={() => handleDpadDown("up")} 
+            onMouseUp={() => handleDpadUp("up")}
+            onTouchStart={(e) => { e.preventDefault(); handleDpadDown("up"); }}
+            onTouchEnd={(e) => { e.preventDefault(); handleDpadUp("up"); }}
+            aria-label="Move up" 
+          />
+          <button 
+            className="pad-btn left" 
+            onMouseDown={() => handleDpadDown("left")} 
+            onMouseUp={() => handleDpadUp("left")}
+            onTouchStart={(e) => { e.preventDefault(); handleDpadDown("left"); }}
+            onTouchEnd={(e) => { e.preventDefault(); handleDpadUp("left"); }}
+            aria-label="Move left" 
+          />
           <div className="pad-center">
-            <img src="/assets/heros/Alpha_Coder.png" alt="Player icon" />
+            <div className="pad-circle" />
           </div>
-          <button className={`pad-btn right ${pressedKey === "ArrowRight" ? "pressed" : ""}`} onClick={() => handleDpad("right")} aria-label="Move right" />
-          <button className={`pad-btn down ${pressedKey === "ArrowDown" ? "pressed" : ""}`} onClick={() => handleDpad("down")} aria-label="Move down" />
+          <button 
+            className="pad-btn right" 
+            onMouseDown={() => handleDpadDown("right")} 
+            onMouseUp={() => handleDpadUp("right")}
+            onTouchStart={(e) => { e.preventDefault(); handleDpadDown("right"); }}
+            onTouchEnd={(e) => { e.preventDefault(); handleDpadUp("right"); }}
+            aria-label="Move right" 
+          />
+          <button 
+            className="pad-btn down" 
+            onMouseDown={() => handleDpadDown("down")} 
+            onMouseUp={() => handleDpadUp("down")}
+            onTouchStart={(e) => { e.preventDefault(); handleDpadDown("down"); }}
+            onTouchEnd={(e) => { e.preventDefault(); handleDpadUp("down"); }}
+            aria-label="Move down" 
+          />
         </div>
       </div>
 
