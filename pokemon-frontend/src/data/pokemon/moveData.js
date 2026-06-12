@@ -1,15 +1,15 @@
 // Centralized move metadata database
 export const MOVE_DATA = {
-  Tackle: { name: "Tackle", power: 40, type: "Normal", category: "physical", accuracy: 100, pp: 35 },
+  Tackle: { name: "Tackle", power: 40, type: "Normal", category: "physical", accuracy: 100, pp: 35, makesContact: true },
   Growl: { name: "Growl", power: 0, type: "Normal", category: "status", accuracy: 100, pp: 40 },
   "Tail Whip": { name: "Tail Whip", power: 0, type: "Normal", category: "status", accuracy: 100, pp: 30 },
   Ember: { name: "Ember", power: 40, type: "Fire", category: "special", accuracy: 100, pp: 25 },
   "Water Gun": { name: "Water Gun", power: 40, type: "Water", category: "special", accuracy: 100, pp: 25 },
   ThunderShock: { name: "ThunderShock", power: 40, type: "Electric", category: "special", accuracy: 100, pp: 30 },
-  "Vine Whip": { name: "Vine Whip", power: 45, type: "Grass", category: "physical", accuracy: 100, pp: 25 },
-  Scratch: { name: "Scratch", power: 40, type: "Normal", category: "physical", accuracy: 100, pp: 35 },
-  Bite: { name: "Bite", power: 60, type: "Dark", category: "physical", accuracy: 100, pp: 25 },
-  "Quick Attack": { name: "Quick Attack", power: 40, type: "Normal", category: "physical", accuracy: 100, priority: 1, pp: 30 },
+  "Vine Whip": { name: "Vine Whip", power: 45, type: "Grass", category: "physical", accuracy: 100, pp: 25, makesContact: true },
+  Scratch: { name: "Scratch", power: 40, type: "Normal", category: "physical", accuracy: 100, pp: 35, makesContact: true },
+  Bite: { name: "Bite", power: 60, type: "Dark", category: "physical", accuracy: 100, pp: 25, makesContact: true },
+  "Quick Attack": { name: "Quick Attack", power: 40, type: "Normal", category: "physical", accuracy: 100, priority: 1, pp: 30, makesContact: true },
   Flamethrower: { name: "Flamethrower", power: 90, type: "Fire", category: "special", accuracy: 100, pp: 15, effects: { chance: 10, status: "burn" } },
   Thunderbolt: { name: "Thunderbolt", power: 90, type: "Electric", category: "special", accuracy: 100, pp: 15, effects: { chance: 10, status: "paralysis" } },
   "Ice Beam": { name: "Ice Beam", power: 90, type: "Ice", category: "special", accuracy: 100, pp: 10, effects: { chance: 10, status: "freeze" } },
@@ -27,7 +27,7 @@ export const MOVE_DATA = {
   Sing: { name: "Sing", power: 0, type: "Normal", category: "status", accuracy: 55, pp: 15, effects: { chance: 100, status: "sleep" } },
   Hypnosis: { name: "Hypnosis", power: 0, type: "Psychic", category: "status", accuracy: 60, pp: 20, effects: { chance: 100, status: "sleep" } },
   Swift: { name: "Swift", power: 60, type: "Normal", category: "special", accuracy: null, pp: 20 },
-  Struggle: { name: "Struggle", power: 50, type: "Normal", category: "physical", accuracy: null, pp: null },
+  Struggle: { name: "Struggle", power: 50, type: "Normal", category: "physical", accuracy: null, pp: null, makesContact: true },
 };
 
 export function getMoveData(moveName) {
@@ -40,6 +40,7 @@ export function getMoveData(moveName) {
     power: 40,
     type: "Normal",
     category: "physical",
+    makesContact: false,
   };
 }
 
@@ -56,6 +57,7 @@ export function buildMove(moveName, fallbackType = "Normal") {
     maxPP: data.pp ?? 35,
     currentPP: data.pp ?? 35,
     priority: data.priority ?? 0,
+    makesContact: data.makesContact ?? false,
     description: data.description ?? null,
     effects: data.effects ?? null,
   };

@@ -26,16 +26,34 @@ export function buildTurnEvents(state, seed) {
   // Determine order
   const turnOrder = determineTurnOrder(playerPokemon, enemy, playerAction, enemyAction, context.rng);
 
-  const checkFaint = () => {
+  const checkFaint = (causingMove = null, moveAttacker = null, moveAttackerTag = null) => {
     if (enemy.currentHp <= 0) {
+      dispatchPhasePipeline(context, PHASES.POST_FAINT, { 
+        faintedCombatant: enemy, 
+        faintedTag: "enemy", 
+        move: causingMove, 
+        attacker: moveAttacker,
+        attackerTag: moveAttackerTag 
+      });
+
       context.pushCoreEvent(createFaintEvent("enemy"));
       context.pushCoreEvent(createTextEvent(`${enemy.name} fainted!`));
       context.pushCoreEvent(createWaitEvent(1000));
+      // NOTE: We only end battle here if player hasn't also fainted, or handle win/loss properly.
+      // For now we keep existing logic
       context.pushCoreEvent(createTextEvent("You won!"));
       context.pushCoreEvent(createEndBattleEvent("win"));
       return true;
     }
     if (playerPokemon.currentHp <= 0) {
+      dispatchPhasePipeline(context, PHASES.POST_FAINT, { 
+        faintedCombatant: playerPokemon, 
+        faintedTag: "player", 
+        move: causingMove, 
+        attacker: moveAttacker,
+        attackerTag: moveAttackerTag 
+      });
+
       context.pushCoreEvent(createFaintEvent("player"));
       context.pushCoreEvent(createTextEvent(`${playerPokemon.name} fainted!`));
       context.pushCoreEvent(createWaitEvent(1000));
@@ -45,16 +63,24 @@ export function buildTurnEvents(state, seed) {
     return false;
   };
 
+  const executeAndCheck = (isPlayerAttacking) => {
+    const action = isPlayerAttacking ? playerAction : enemyAction;
+    const attacker = isPlayerAttacking ? playerPokemon : enemy;
+    const attackerTag = isPlayerAttacking ? "player" : "enemy";
+
+    executeActionPipeline(context, isPlayerAttacking);
+
+    return checkFaint(action?.move, attacker, attackerTag);
+  };
+
   // Turn Flow Execution
   dispatchPhasePipeline(context, PHASES.ON_TURN_START, {});
 
   // Turn 1
-  executeActionPipeline(context, turnOrder.first === "player");
-  if (checkFaint()) return finalizeContext(context);
+  if (executeAndCheck(turnOrder.first === "player")) return finalizeContext(context);
 
   // Turn 2
-  executeActionPipeline(context, turnOrder.first === "enemy");
-  if (checkFaint()) return finalizeContext(context);
+  if (executeAndCheck(turnOrder.first === "enemy")) return finalizeContext(context);
 
   // End Turn Phase
   turnEndPipeline(context);

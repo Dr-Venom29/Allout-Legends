@@ -62,6 +62,10 @@ export function dispatchPhasePipeline(context, phase, phaseContext = {}) {
         const r = dispatchAbilityPhase(phase, ctx, { ...safePctx, abilityOwner: phaseContext.defender, source: phaseContext.defender, target: phaseContext.attacker });
         if (r && r.blocked) blocked = true;
       }
+      if (phaseContext.faintedCombatant) {
+        const r = dispatchAbilityPhase(phase, ctx, { ...safePctx, abilityOwner: phaseContext.faintedCombatant, source: phaseContext.faintedCombatant, target: phaseContext.attacker });
+        if (r && r.blocked) blocked = true;
+      }
       return blocked ? { blocked: true } : null;
     }
 
@@ -70,6 +74,7 @@ export function dispatchPhasePipeline(context, phase, phaseContext = {}) {
       if (pCtx.attacker) combatantsToCheck.push({ c: pCtx.attacker, tag: pCtx.attackerTag });
       if (pCtx.defender) combatantsToCheck.push({ c: pCtx.defender, tag: pCtx.defenderTag });
       if (pCtx.combatant) combatantsToCheck.push({ c: pCtx.combatant, tag: pCtx.targetTag });
+      if (pCtx.faintedCombatant) combatantsToCheck.push({ c: pCtx.faintedCombatant, tag: pCtx.faintedTag });
       return computeCombatantOrder(combatantsToCheck);
     }
 
